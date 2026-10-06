@@ -47,10 +47,10 @@ if (!BOT_TOKEN) {
 const bot = new Telegraf(BOT_TOKEN);
 
 // Kanallar ro'yxati va ID/usernamelari
-const MARKET_CHANNEL_ID = "@dataBaseForTheWatchOutlet"; // Bozor / Yangi soatlar kanali
-const USED_CHANNEL_ID = "@usedWatchesData"; // Б/У soatlar kanali (Yangi qo'shildi)
-const AUCTION_CHANNEL_ID = "@auctionForTheWatchOutlet"; // Auksion kanali
-const INSTALLMENT_CHANNEL_ID = "@nasiyaForTheWatchOutlet"; // Nasiya savdo kanali
+const MARKET_CHANNEL_ID = "@forShoesDataBase"; // Bozor / Yangi soatlar kanali
+const USED_CHANNEL_ID = "@"; // Б/У soatlar kanali (Yangi qo'shildi)
+const AUCTION_CHANNEL_ID = "@auksionForLuisFabiani"; // Auksion kanali
+const INSTALLMENT_CHANNEL_ID = "@"; // Nasiya savdo kanali
 
 // Universal tozalash funksiyasi
 async function cleanupCollection(collectionName, channelId) {

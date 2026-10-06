@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const CHANNEL_USERNAME = "dataBaseForTheWatchOutlet";
+const CHANNEL_USERNAME = "forShoesDataBase";
 const PROXY_TIMEOUT = 20000;
 const NOT_PROVIDED = "";
 
