@@ -186,9 +186,9 @@ const CarCard = ({ car: shoe }) => {
             {sizeList.length > 0 && (
               <div className="mt-1.5 pt-1.5 border-t border-slate-800/80">
                 <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5 scroll-smooth">
-                  <span className="text-[9px] uppercase font-bold text-slate-400 shrink-0 mr-0.5">
+                  {/* <span className="text-[9px] uppercase font-bold text-slate-400 shrink-0 mr-0.5">
                     Razmer:
-                  </span>
+                  </span> */}
                   {sizeList.map((sz, idx) => (
                     <span
                       key={idx}
