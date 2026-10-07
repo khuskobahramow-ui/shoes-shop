@@ -105,9 +105,9 @@ const Home = () => {
               key={brand}
               type="button"
               onClick={() => setSelectedBrand(brand)}
-              className={`px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-200 ${
+              className={`px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all duration-200 ${
                 selectedBrand === brand
-                  ? "bg-blue-600 text-white shadow-md shadow-blue-500/20 scale-105"
+                  ? "bg-amber-500 text-black shadow-md shadow-blue-500/20 scale-105"
                   : "bg-[#0f192b] text-white border border-slate-400/60 hover:bg-[#182640]"
               }`}
             >

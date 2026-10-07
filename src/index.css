@@ -25,3 +25,12 @@ body {
   font-family: "Inter", sans-serif;
   background-color: #112544;
 }
+
+/* Scrollbar-ni yashirish uchun global sinf */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

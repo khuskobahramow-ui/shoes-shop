@@ -185,10 +185,14 @@ const CarCard = ({ car: shoe }) => {
             {/* NARXNING PASTIDA RAZMERLAR */}
             {sizeList.length > 0 && (
               <div className="mt-1.5 pt-1.5 border-t border-slate-800/80">
-                <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5 scroll-smooth">
-                  {/* <span className="text-[9px] uppercase font-bold text-slate-400 shrink-0 mr-0.5">
-                    Razmer:
-                  </span> */}
+                <div
+                  className="flex items-center gap-1 overflow-x-auto py-0.5 scroll-smooth"
+                  style={{
+                    scrollbarWidth: "none" /* Firefox uchun */,
+                    msOverflowStyle:
+                      "none" /* Internet Explorer va Edge uchun */,
+                  }}
+                >
                   {sizeList.map((sz, idx) => (
                     <span
                       key={idx}
@@ -202,13 +206,13 @@ const CarCard = ({ car: shoe }) => {
             )}
 
             {/* Specs: Color & Material */}
-            {(shoe?.color || shoe?.material) && (
+            {/* {(shoe?.color || shoe?.material) && (
               <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-400 mt-1.5">
                 {shoe?.color && <span>{shoe.color}</span>}
                 {shoe?.color && shoe?.material && <span>•</span>}
                 {shoe?.material && <span>{shoe.material}</span>}
               </div>
-            )}
+            )} */}
           </div>
         </div>
       </div>

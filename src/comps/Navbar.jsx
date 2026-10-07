@@ -46,7 +46,9 @@ const Navbar = () => {
               alt="Logo"
             />
           </Link> */}
-          <h1 className=" font-bold text-white text-1xl">The Watch Outlet</h1>
+          <h1 className=" font-bold font-serif text-amber-500 text-[20px]">
+            Luis Fabiani
+          </h1>
         </div>
 
         {/* text */}
@@ -63,7 +65,7 @@ const Navbar = () => {
         <div>
           <button
             onClick={() => setIsOpen(true)}
-            className="p-1 text-white hover:bg-slate-100 rounded-lg active:scale-90 transition-all cursor-pointer flex items-center justify-center"
+            className="p-1 text-amber-500 hover:bg-slate-100 rounded-lg active:scale-90 transition-all cursor-pointer flex items-center justify-center"
           >
             <MdMenuOpen size={28} />
           </button>
