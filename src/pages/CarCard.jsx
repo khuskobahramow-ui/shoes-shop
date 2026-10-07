@@ -177,7 +177,7 @@ const CarCard = ({ car: shoe }) => {
               <PriceTag usd={shoePrice} size="sm" />
               {shoePriceUzs > 0 && (
                 <span className="text-[10px] text-slate-400 font-medium">
-                  ({shoePriceUzs.toLocaleString()} UZS)
+                  {shoePriceUzs.toLocaleString()} UZS
                 </span>
               )}
             </div>

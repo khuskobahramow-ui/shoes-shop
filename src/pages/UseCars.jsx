@@ -15,7 +15,7 @@ export function useCars() {
     setLoading(true);
 
     // Bazada "watches" ham, "shoes" ham bo'lishi mumkinligi uchun "watches" ga ulaymiz
-    const qShoes = query(collection(db, "watches"));
+    const qShoes = query(collection(db, "shoes"));
     const qAuctions = query(collection(db, "auctions"));
 
     let shoesList = [];

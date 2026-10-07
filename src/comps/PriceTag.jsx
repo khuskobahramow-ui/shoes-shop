@@ -19,9 +19,9 @@ const PriceTag = ({ usd, size = "sm", className = "" }) => {
       <span className={` text-white font-extrabold ${s.usd}`}>
         ${priceUsd.toLocaleString()}
       </span>
-      <span className={`text-slate-400 font-medium ${s.uzs}`}>
+      {/* <span className={`text-slate-400 font-medium ${s.uzs}`}>
         {formatUZS(priceUsd)}
-      </span>
+      </span> */}
     </div>
   );
 };
