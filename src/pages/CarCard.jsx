@@ -182,7 +182,7 @@ const CarCard = ({ car: shoe }) => {
               )}
             </div>
 
-            {/* NARXNING PASTIDA NARXLARDAN KEYIN CHEKSIZ SLIDER RAZMERLAR */}
+            {/* NARXNING PASTIDA RAZMERLAR */}
             {sizeList.length > 0 && (
               <div className="mt-1.5 pt-1.5 border-t border-slate-800/80">
                 <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5 scroll-smooth">

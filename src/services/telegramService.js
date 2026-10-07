@@ -4,7 +4,7 @@ const CHANNEL_USERNAME = "forShoesDataBase";
 const PROXY_TIMEOUT = 20000;
 const NOT_PROVIDED = "";
 
-export const fetchWatchesFromTelegram = async () => {
+export const fetchShoesFromTelegram = async () => {
   try {
     const targetUrl = `https://t.me/s/${CHANNEL_USERNAME}`;
 
@@ -19,8 +19,6 @@ export const fetchWatchesFromTelegram = async () => {
     let htmlText = "";
 
     async function tryProxy(proxyUrl) {
-      console.log("Telegram proxy tekshirilmoqda:", proxyUrl);
-
       const response = await axios.get(proxyUrl, {
         timeout: PROXY_TIMEOUT,
       });
@@ -32,7 +30,6 @@ export const fetchWatchesFromTelegram = async () => {
       }
 
       if (typeof data === "string" && data.includes("tgme_widget_message")) {
-        console.log("Telegram HTML muvaffaqiyatli olindi:", proxyUrl);
         return data;
       }
 
@@ -42,14 +39,10 @@ export const fetchWatchesFromTelegram = async () => {
     try {
       htmlText = await Promise.any(proxies.map((url) => tryProxy(url)));
     } catch (aggregateError) {
-      console.warn(
-        "Uchala proksi ham ishlamadi:",
-        aggregateError?.errors || aggregateError
-      );
+      console.warn("Uchala proksi ham ishlamadi:", aggregateError);
     }
 
     if (!htmlText) {
-      console.error("Telegram kanalidan HTML olinmadi.");
       return [];
     }
 
@@ -57,9 +50,7 @@ export const fetchWatchesFromTelegram = async () => {
     const doc = parser.parseFromString(htmlText, "text/html");
     const messages = doc.querySelectorAll(".tgme_widget_message");
 
-    console.log("Telegram postlari soni:", messages.length);
-
-    const parsedWatches = [];
+    const parsedShoes = [];
 
     messages.forEach((msg, index) => {
       const textNode = msg.querySelector(".tgme_widget_message_text");
@@ -68,29 +59,46 @@ export const fetchWatchesFromTelegram = async () => {
         return;
       }
 
-      let name = "";
-      let watchId = "";
-      let price = 0;
-      let year = "2024";
-      let location = "Toshkent sh.";
-      let date = "Bugun";
-      let status = "active"; // Sukut bo'yicha faol
+      let type = "market";
+      let isSale = "no-sale";
+      let shoeId = "";
+      let status = "active";
 
-      // Soat xarakteristikalari
+      let name = "";
       let brand = NOT_PROVIDED;
       let model = NOT_PROVIDED;
-      let mechanism = NOT_PROVIDED;
-      let diameter = NOT_PROVIDED;
-      let caseMaterial = NOT_PROVIDED;
-      let strap = NOT_PROVIDED;
-      let waterResistance = NOT_PROVIDED;
-      let glass = NOT_PROVIDED;
 
+      let price = 0;
+      let priceUzs = 0;
+
+      let startPrice = 0;
+      let startPriceUzs = 0;
+      let bidStep = 0;
+      let bidStepUzs = 0;
+      let endTime = NOT_PROVIDED;
+
+      let sizes = NOT_PROVIDED;
+      let color = NOT_PROVIDED;
+      let material = NOT_PROVIDED;
+      let gender = NOT_PROVIDED;
+      let season = NOT_PROVIDED;
+
+      let date = "Bugun";
       let instagram = NOT_PROVIDED;
-      let youtube = NOT_PROVIDED;
       let description = NOT_PROVIDED;
 
       const images = [];
+
+      const isSocialMediaUrl = (url) => {
+        if (!url) return true;
+        const lowerUrl = url.toLowerCase();
+        return (
+          lowerUrl.includes("instagram.com") ||
+          lowerUrl.includes("youtube.com") ||
+          lowerUrl.includes("youtu.be") ||
+          lowerUrl.includes("t.me")
+        );
+      };
 
       const anchors = textNode.querySelectorAll("a");
       const anchorImageUrls = [];
@@ -98,8 +106,10 @@ export const fetchWatchesFromTelegram = async () => {
       for (const anchor of anchors) {
         const href = anchor.getAttribute("href") || "";
         const isImage =
-          href.includes("ibb.co") ||
-          /\.(webp|jpg|jpeg|png)(\?.*)?$/i.test(href);
+          (href.includes("cloudinary.com") ||
+            href.includes("ibb.co") ||
+            /\.(webp|jpg|jpeg|png)(\?.*)?$/i.test(href)) &&
+          !isSocialMediaUrl(href);
 
         if (isImage) {
           anchorImageUrls.push(href);
@@ -127,10 +137,16 @@ export const fetchWatchesFromTelegram = async () => {
 
         const lowerLine = cleanLine.toLowerCase();
 
-        // -----------------------------------------------------
-        // HOLAT / STATUS TEKSHIRUVI
-        // -----------------------------------------------------
-        if (lowerLine.startsWith("holat:") || lowerLine.startsWith("status:")) {
+        if (lowerLine.startsWith("type:")) {
+          const val = cleanLine.split(":")[1]?.trim().toLowerCase();
+          if (val === "auction") type = "auction";
+          else type = "market";
+        } else if (lowerLine.startsWith("issale:")) {
+          isSale = cleanLine.split(":")[1]?.trim().toLowerCase() || "no-sale";
+        } else if (
+          lowerLine.startsWith("status:") ||
+          lowerLine.startsWith("holat:")
+        ) {
           const val = cleanLine
             .substring(cleanLine.indexOf(":") + 1)
             .trim()
@@ -143,90 +159,85 @@ export const fetchWatchesFromTelegram = async () => {
           ) {
             status = "no-active";
           }
-        }
-
-        // ID
-        else if (lowerLine.startsWith("id:")) {
-          watchId = cleanLine.replace(/^id:/i, "").trim();
-        }
-        // NOMI
-        else if (lowerLine.startsWith("nomi:")) {
-          name = cleanLine.replace(/^nomi:/i, "").trim();
-        }
-        // BREND
-        else if (lowerLine.startsWith("brend:")) {
-          brand = cleanLine.replace(/^brend:/i, "").trim();
-        }
-        // MODEL
-        else if (lowerLine.startsWith("model:")) {
-          model = cleanLine.replace(/^model:/i, "").trim();
-        }
-        // NARXI
-        else if (lowerLine.startsWith("narxi:")) {
-          const value = cleanLine.replace(/^narxi:/i, "").replace(/[^\d]/g, "");
-          price = value ? parseInt(value, 10) : 0;
-        }
-        // YILI
-        else if (lowerLine.startsWith("yili:")) {
-          year = cleanLine.replace(/^yili:/i, "").trim();
-        }
-        // MEXANIZM
-        else if (lowerLine.startsWith("mexanizm:")) {
-          mechanism = cleanLine.replace(/^mexanizm:/i, "").trim();
-        }
-        // DIAMETR
-        else if (lowerLine.startsWith("diametr:")) {
-          diameter = cleanLine.replace(/^diametr:/i, "").trim();
-        }
-        // KORPUS
-        else if (lowerLine.startsWith("korpus:")) {
-          caseMaterial = cleanLine.replace(/^korpus:/i, "").trim();
-        }
-        // KAMAR
-        else if (lowerLine.startsWith("kamar:")) {
-          strap = cleanLine.replace(/^kamar:/i, "").trim();
-        }
-        // SUVDAN HIMOYA
-        else if (
-          lowerLine.startsWith("suvdan himoya:") ||
-          lowerLine.startsWith("suvdan_himoya:")
+        } else if (lowerLine.startsWith("id:")) {
+          shoeId = cleanLine.substring(cleanLine.indexOf(":") + 1).trim();
+        } else if (lowerLine.startsWith("brand:")) {
+          brand = cleanLine.substring(cleanLine.indexOf(":") + 1).trim();
+        } else if (
+          lowerLine.startsWith("card title:") ||
+          lowerLine.startsWith("nomi:")
         ) {
-          waterResistance = cleanLine
+          name = cleanLine.substring(cleanLine.indexOf(":") + 1).trim();
+        } else if (
+          lowerLine.startsWith("ref. code / model:") ||
+          lowerLine.startsWith("model:")
+        ) {
+          model = cleanLine.substring(cleanLine.indexOf(":") + 1).trim();
+        } else if (lowerLine.startsWith("price uzs:")) {
+          const val = cleanLine.replace(/[^0-9]/g, "");
+          priceUzs = val ? parseInt(val, 10) : 0;
+        } else if (lowerLine.startsWith("price:")) {
+          const val = cleanLine.replace(/[^0-9]/g, "");
+          price = val ? parseInt(val, 10) : 0;
+        } else if (lowerLine.startsWith("start price uzs:")) {
+          const val = cleanLine.replace(/[^0-9]/g, "");
+          startPriceUzs = val ? parseInt(val, 10) : 0;
+        } else if (lowerLine.startsWith("start price:")) {
+          const val = cleanLine.replace(/[^0-9]/g, "");
+          startPrice = val ? parseInt(val, 10) : 0;
+        } else if (lowerLine.startsWith("bid step uzs:")) {
+          const val = cleanLine.replace(/[^0-9]/g, "");
+          bidStepUzs = val ? parseInt(val, 10) : 0;
+        } else if (lowerLine.startsWith("bid step:")) {
+          const val = cleanLine.replace(/[^0-9]/g, "");
+          bidStep = val ? parseInt(val, 10) : 0;
+        } else if (lowerLine.startsWith("end time:")) {
+          endTime = cleanLine.substring(cleanLine.indexOf(":") + 1).trim();
+        }
+        // 🔥 RAZMERLARNI ANIQ USHLASH QISMI
+        else if (
+          lowerLine.startsWith("sizes:") ||
+          lowerLine.startsWith("size:") ||
+          lowerLine.startsWith("razmer:") ||
+          lowerLine.startsWith("o'lcham:")
+        ) {
+          sizes = cleanLine.substring(cleanLine.indexOf(":") + 1).trim();
+        } else if (
+          lowerLine.startsWith("color:") ||
+          lowerLine.startsWith("rangi:")
+        ) {
+          color = cleanLine.substring(cleanLine.indexOf(":") + 1).trim();
+        } else if (lowerLine.startsWith("material:")) {
+          material = cleanLine.substring(cleanLine.indexOf(":") + 1).trim();
+        } else if (lowerLine.startsWith("gender:")) {
+          gender = cleanLine.substring(cleanLine.indexOf(":") + 1).trim();
+        } else if (lowerLine.startsWith("season:")) {
+          season = cleanLine.substring(cleanLine.indexOf(":") + 1).trim();
+        } else if (
+          lowerLine.startsWith("date:") ||
+          lowerLine.startsWith("sana:")
+        ) {
+          date = cleanLine.substring(cleanLine.indexOf(":") + 1).trim();
+        } else if (lowerLine.startsWith("instagram:")) {
+          instagram = cleanLine.substring(cleanLine.indexOf(":") + 1).trim();
+        } else if (
+          lowerLine.startsWith("description:") ||
+          lowerLine.startsWith("tavsif:")
+        ) {
+          description = cleanLine.substring(cleanLine.indexOf(":") + 1).trim();
+        } else if (
+          /^image\d*:/i.test(lowerLine) ||
+          /^rasm\d*:/i.test(lowerLine)
+        ) {
+          let extractedUrl = cleanLine
             .substring(cleanLine.indexOf(":") + 1)
             .trim();
-        }
-        // SHISHA
-        else if (lowerLine.startsWith("shisha:")) {
-          glass = cleanLine.replace(/^shisha:/i, "").trim();
-        }
-        // JOY
-        else if (lowerLine.startsWith("joy:")) {
-          location = cleanLine.replace(/^joy:/i, "").trim();
-        }
-        // SANA
-        else if (lowerLine.startsWith("sana:")) {
-          date = cleanLine.replace(/^sana:/i, "").trim();
-        }
-        // INSTAGRAM
-        else if (lowerLine.startsWith("instagram:")) {
-          instagram = cleanLine.replace(/^instagram:/i, "").trim();
-        }
-        // YOUTUBE
-        else if (lowerLine.startsWith("youtube:")) {
-          youtube = cleanLine.replace(/^youtube:/i, "").trim();
-        }
-        // TAVSIF
-        else if (lowerLine.startsWith("tavsif:")) {
-          description = cleanLine.replace(/^tavsif:/i, "").trim();
-        }
-        // RASMLAR
-        else if (/^rasm\d*:/i.test(lowerLine)) {
-          let extractedUrl = cleanLine.replace(/^rasm\d*:/i, "").trim();
           extractedUrl = extractedUrl.replace(/[),.]+$/, "");
 
           if (
-            extractedUrl.startsWith("http://") ||
-            extractedUrl.startsWith("https://")
+            (extractedUrl.startsWith("http://") ||
+              extractedUrl.startsWith("https://")) &&
+            !isSocialMediaUrl(extractedUrl)
           ) {
             images.push(extractedUrl);
           }
@@ -242,46 +253,53 @@ export const fetchWatchesFromTelegram = async () => {
         if (photoNode) {
           const style = photoNode.getAttribute("style") || "";
           const urlMatch = style.match(/url\(['"]?(.*?)['"]?\)/);
-          if (urlMatch && urlMatch[1]) {
+          if (urlMatch && urlMatch[1] && !isSocialMediaUrl(urlMatch[1])) {
             images.push(urlMatch[1]);
           }
         }
       }
 
-      // FAQUAT 'no-active' BO'LMAGAN SOATLARNI QO'SHISH
-      if (name && status !== "no-active") {
-        const watch = {
-          id: watchId || `${index}-${name}`,
-          listingId: watchId || "",
+      if ((name || brand) && status !== "no-active") {
+        const validImages = images.filter((img) => !isSocialMediaUrl(img));
+
+        const item = {
+          id: shoeId || `${index}-${name}`,
+          shoeId: shoeId || "",
+          type,
+          isSale,
+          status,
           name,
           brand,
           model,
           price,
-          year,
-          mechanism,
-          diameter,
-          caseMaterial,
-          strap,
-          waterResistance,
-          glass,
-          location,
+          priceUzs,
+          startPrice,
+          startPriceUzs,
+          bidStep,
+          bidStepUzs,
+          endTime,
+          sizes, // <-- Razmerlar shu yerda to'g'ridan-to'g'ri obyektga qo'shiladi
+          color,
+          material,
+          gender,
+          season,
           date,
-          status,
           instagram,
-          youtube,
           description,
-          images,
-          image: images[0] || "",
+          images: validImages,
+          image: validImages[0] || "",
         };
 
-        parsedWatches.push(watch);
+        parsedShoes.push(item);
       }
     });
 
-    parsedWatches.reverse();
-    return parsedWatches;
+    parsedShoes.reverse();
+    return parsedShoes;
   } catch (error) {
     console.error("Telegramdan ma'lumot olishda xatolik:", error);
     return [];
   }
 };
+
+export const fetchWatchesFromTelegram = fetchShoesFromTelegram;
