@@ -13,6 +13,7 @@ import SearchModal from "./SearchModal";
 import FilterModal from "./FilterModal";
 import useCars from "./UseCars";
 import BottomNav from "./BottomNav";
+import BannerSlider from "../comps/BannerSlider";
 
 const Home = () => {
   const { cars, loading } = useCars();
@@ -90,6 +91,7 @@ const Home = () => {
   return (
     <div>
       <Navbar />
+      <BannerSlider />
       <MenuBar />
 
       <SearchBar
