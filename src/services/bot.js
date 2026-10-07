@@ -1,270 +1,307 @@
-import { Telegraf } from "telegraf";
-import { initializeApp, cert } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
-import http from "http";
-import fs from "fs";
-import path from "path";
-import dotenv from "dotenv";
+import axios from "axios";
 
-// Lokal .env faylini yuklash
-dotenv.config();
+const CHANNEL_USERNAME = "forShoesDataBase";
+const PROXY_TIMEOUT = 20000;
+const NOT_PROVIDED = "";
 
-// 1. Firebase Admin Sozlanmasi
-let serviceAccount = null;
-
-// .env ichidagi FIREBASE_SERVICE_ACCOUNT to'g'ri private_key'ga ega ekanligini tekshirish
-if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+export const fetchShoesFromTelegram = async () => {
   try {
-    const parsed =
-      typeof process.env.FIREBASE_SERVICE_ACCOUNT === "string"
-        ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
-        : process.env.FIREBASE_SERVICE_ACCOUNT;
+    const targetUrl = `https://t.me/s/${CHANNEL_USERNAME}`;
 
-    if (parsed && (parsed.private_key || parsed.privateKey)) {
-      serviceAccount = parsed;
+    const proxies = [
+      `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`,
+      `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
+      `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(
+        targetUrl
+      )}`,
+    ];
+
+    let htmlText = "";
+
+    async function tryProxy(proxyUrl) {
+      console.log("Telegram proxy tekshirilmoqda:", proxyUrl);
+
+      const response = await axios.get(proxyUrl, {
+        timeout: PROXY_TIMEOUT,
+      });
+
+      let data = response.data;
+
+      if (data && typeof data === "object" && data.contents) {
+        data = data.contents;
+      }
+
+      if (typeof data === "string" && data.includes("tgme_widget_message")) {
+        console.log("Telegram HTML muvaffaqiyatli olindi:", proxyUrl);
+        return data;
+      }
+
+      throw new Error("Proksi noto'g'ri formatda javob berdi: " + proxyUrl);
     }
-  } catch (e) {
-    // .env parsing xatosi bo'lsa, xatolik berilmaydi va lokal faylga o'tiladi
-  }
-}
 
-// Agar .env ichida yaroqli kalit bo'lmasa, lokal serviceAccountKey.json faylidan o'qiladi
-if (!serviceAccount) {
-  const localKeyPath = path.join(
-    process.cwd(),
-    "src",
-    "services",
-    "serviceAccountKey.json"
-  );
-  if (fs.existsSync(localKeyPath)) {
     try {
-      const rawData = fs.readFileSync(localKeyPath, "utf8");
-      serviceAccount = JSON.parse(rawData);
-    } catch (e) {
-      console.error("❌ serviceAccountKey.json faylini o'qishda xatolik:", e);
+      htmlText = await Promise.any(proxies.map((url) => tryProxy(url)));
+    } catch (aggregateError) {
+      console.warn(
+        "Uchala proksi ham ishlamadi:",
+        aggregateError?.errors || aggregateError
+      );
     }
-  }
-}
 
-if (!serviceAccount) {
-  console.error(
-    "❌ Firebase Service Account topilmadi! (.env yoki serviceAccountKey.json tayyorligini tekshiring)"
-  );
-  process.exit(1);
-}
+    if (!htmlText) {
+      console.error("Telegram kanalidan HTML olinmadi.");
+      return [];
+    }
 
-initializeApp({ credential: cert(serviceAccount) });
-const db = getFirestore();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(htmlText, "text/html");
+    const messages = doc.querySelectorAll(".tgme_widget_message");
 
-// 2. Telegram Bot Sozlanmasi
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-if (!BOT_TOKEN) {
-  console.error("❌ TELEGRAM_BOT_TOKEN topilmadi!");
-  process.exit(1);
-}
+    console.log("Telegram postlari soni:", messages.length);
 
-const bot = new Telegraf(BOT_TOKEN);
+    const parsedShoes = [];
 
-// 3. Hub Post Parser Funksiyasi
-function parseWatchPost(text, messageId) {
-  if (!text) return null;
+    messages.forEach((msg, index) => {
+      const textNode = msg.querySelector(".tgme_widget_message_text");
 
-  const lines = text.split("\n");
-  const data = {
-    id: `post_${messageId}`,
-    messageId: messageId,
-    updatedAt: new Date(),
-  };
-
-  let isAuction = false;
-  let isInstallment = false;
-  let isUsed = false;
-  let type = "market";
-
-  const images = [];
-
-  lines.forEach((line) => {
-    const trimmedLine = line.trim();
-    if (!trimmedLine || trimmedLine.startsWith("---")) return;
-
-    const lowerLine = trimmedLine.toLowerCase();
-
-    // TYPE
-    if (lowerLine.startsWith("type:")) {
-      const typeVal = trimmedLine.split(":")[1].trim().toLowerCase();
-      if (typeVal === "auction") {
-        isAuction = true;
-        type = "auction";
-      } else if (typeVal === "installment") {
-        isInstallment = true;
-        type = "installment";
-      } else if (typeVal === "used") {
-        isUsed = true;
-        type = "used";
-      } else {
-        type = "market";
+      if (!textNode) {
+        return;
       }
-    }
 
-    if (trimmedLine.includes("🔥 AUCTION POST 🔥")) {
-      isAuction = true;
-      type = "auction";
-    }
-    if (trimmedLine.includes("🏦 INSTALLMENT POST 🏦")) {
-      isInstallment = true;
-      type = "installment";
-    }
-    if (trimmedLine.includes("🔄 USED WATCH POST 🔄")) {
-      isUsed = true;
-      type = "used";
-    }
+      let type = "market";
+      let isSale = "no-sale";
+      let shoeId = "";
+      let status = "active"; // Sukut bo'yicha faol
 
-    // DATA FIELDS
-    if (lowerLine.startsWith("id:"))
-      data.watchId = trimmedLine.substring(trimmedLine.indexOf(":") + 1).trim();
-    if (lowerLine.startsWith("status:"))
-      data.status = trimmedLine
-        .substring(trimmedLine.indexOf(":") + 1)
-        .trim()
-        .toLowerCase();
-    if (lowerLine.startsWith("brand:"))
-      data.brand = trimmedLine.substring(trimmedLine.indexOf(":") + 1).trim();
-    if (lowerLine.startsWith("card title:"))
-      data.name = trimmedLine.substring(trimmedLine.indexOf(":") + 1).trim();
-    if (
-      lowerLine.startsWith("ref. code / model:") ||
-      lowerLine.startsWith("ref. code:")
-    ) {
-      data.model = trimmedLine.substring(trimmedLine.indexOf(":") + 1).trim();
-    }
+      let name = "";
+      let brand = NOT_PROVIDED;
+      let model = NOT_PROVIDED;
 
-    // PRICES
-    if (lowerLine.startsWith("price:"))
-      data.price = Number(trimmedLine.replace(/[^0-9]/g, "")) || 0;
-    if (lowerLine.startsWith("total price:")) {
-      data.totalPrice = Number(trimmedLine.replace(/[^0-9]/g, "")) || 0;
-      data.price = data.totalPrice;
-    }
-    if (lowerLine.startsWith("start price:")) {
-      data.startingPrice = Number(trimmedLine.replace(/[^0-9]/g, "")) || 0;
-      data.price = data.startingPrice;
-    }
-    if (lowerLine.startsWith("bid step:"))
-      data.bidStep = Number(trimmedLine.replace(/[^0-9]/g, "")) || 50;
-    if (lowerLine.startsWith("end time:"))
-      data.endTime = trimmedLine.substring(trimmedLine.indexOf(":") + 1).trim();
+      let price = 0;
+      let priceUzs = 0;
 
-    // INSTALLMENT
-    if (lowerLine.startsWith("min. down payment:"))
-      data.minDownPayment = Number(trimmedLine.replace(/[^0-9]/g, "")) || 0;
-    if (lowerLine.startsWith("annual rate:"))
-      data.annualInterest = Number(trimmedLine.replace(/[^0-9]/g, "")) || 0;
-    if (lowerLine.startsWith("min. term:"))
-      data.minPeriod = Number(trimmedLine.replace(/[^0-9]/g, "")) || 0;
-    if (lowerLine.startsWith("max. term:"))
-      data.maxPeriod = Number(trimmedLine.replace(/[^0-9]/g, "")) || 0;
+      // Auction fields
+      let startPrice = 0;
+      let startPriceUzs = 0;
+      let bidStep = 0;
+      let bidStepUzs = 0;
+      let endTime = NOT_PROVIDED;
 
-    // SPECS
-    if (lowerLine.startsWith("case material:"))
-      data.caseMaterial = trimmedLine
-        .substring(trimmedLine.indexOf(":") + 1)
-        .trim();
-    if (lowerLine.startsWith("mechanism:"))
-      data.mechanism = trimmedLine
-        .substring(trimmedLine.indexOf(":") + 1)
-        .trim();
-    if (lowerLine.startsWith("glass:"))
-      data.glass = trimmedLine.substring(trimmedLine.indexOf(":") + 1).trim();
-    if (lowerLine.startsWith("bracelet/strap:"))
-      data.strap = trimmedLine.substring(trimmedLine.indexOf(":") + 1).trim();
-    if (lowerLine.startsWith("gender:"))
-      data.gender = trimmedLine.substring(trimmedLine.indexOf(":") + 1).trim();
-    if (lowerLine.startsWith("case size:"))
-      data.diameter = trimmedLine
-        .substring(trimmedLine.indexOf(":") + 1)
-        .trim();
-    if (lowerLine.startsWith("water resistance:"))
-      data.waterResistance = trimmedLine
-        .substring(trimmedLine.indexOf(":") + 1)
-        .trim();
+      // Shoe specs
+      let sizes = NOT_PROVIDED;
+      let color = NOT_PROVIDED;
+      let material = NOT_PROVIDED;
+      let gender = NOT_PROVIDED;
+      let season = NOT_PROVIDED;
 
-    // META
-    if (lowerLine.startsWith("date:"))
-      data.date = trimmedLine.substring(trimmedLine.indexOf(":") + 1).trim();
-    if (lowerLine.startsWith("instagram:"))
-      data.instagram = trimmedLine
-        .substring(trimmedLine.indexOf(":") + 1)
-        .trim();
-    if (lowerLine.startsWith("youtube:"))
-      data.youtube = trimmedLine.substring(trimmedLine.indexOf(":") + 1).trim();
-    if (lowerLine.startsWith("description:"))
-      data.description = trimmedLine
-        .substring(trimmedLine.indexOf(":") + 1)
-        .trim();
+      let date = "Bugun";
+      let instagram = NOT_PROVIDED;
+      let description = NOT_PROVIDED;
 
-    // IMAGES (Image1:, Image2: yoki matn ichidagi URL-lar)
-    if (lowerLine.includes("http://") || lowerLine.includes("https://")) {
-      const urlMatches = trimmedLine.match(/(https?:\/\/[^\s]+)/g);
-      if (urlMatches) {
-        urlMatches.forEach((url) => images.push(url));
+      const images = [];
+
+      const anchors = textNode.querySelectorAll("a");
+      const anchorImageUrls = [];
+
+      for (const anchor of anchors) {
+        const href = anchor.getAttribute("href") || "";
+        const isImage =
+          href.includes("cloudinary.com") ||
+          href.includes("ibb.co") ||
+          /\.(webp|jpg|jpeg|png)(\?.*)?$/i.test(href);
+
+        if (isImage) {
+          anchorImageUrls.push(href);
+        }
       }
-    }
-  });
 
-  data.isAuction = isAuction;
-  data.isInstallment = isInstallment;
-  data.isUsed = isUsed;
-  data.type = type;
-  data.images = images;
-  data.image = images[0] || "";
+      let formattedHtml = textNode.innerHTML
+        .replace(/<br\s*\/?>/gi, "\n")
+        .replace(/<\/div>/gi, "\n")
+        .replace(/<div>/gi, "");
 
-  return data;
-}
+      const tempDiv = document.createElement("div");
+      tempDiv.innerHTML = formattedHtml;
 
-// 4. Telegram Event-larni Eshitish (Kanal va Shaxsiy xabarlar)
-bot.on(["message", "channel_post", "edited_channel_post"], async (ctx) => {
-  try {
-    const post = ctx.channelPost || ctx.editedChannelPost || ctx.message;
-    const text = post.caption || post.text || "";
+      const text = tempDiv.innerText || tempDiv.textContent || "";
 
-    if (!text || !text.trim()) return;
+      const lines = text
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean);
 
-    const watchData = parseWatchPost(text, post.message_id);
-    if (!watchData || (!watchData.name && !watchData.brand)) return;
+      lines.forEach((line) => {
+        const cleanLine = line.trim();
+        if (!cleanLine) return;
 
-    let targetCollection = "watches";
-    if (watchData.isAuction) targetCollection = "auctions";
-    else if (watchData.isInstallment) targetCollection = "installment_watches";
-    else if (watchData.isUsed) targetCollection = "used_watches";
+        const lowerLine = cleanLine.toLowerCase();
 
-    await db
-      .collection(targetCollection)
-      .doc(`post_${post.message_id}`)
-      .set(watchData, { merge: true });
+        // TYPE & ISSALE
+        if (lowerLine.startsWith("type:")) {
+          const val = cleanLine.split(":")[1]?.trim().toLowerCase();
+          if (val === "auction") type = "auction";
+          else type = "market";
+        } else if (lowerLine.startsWith("issale:")) {
+          isSale = cleanLine.split(":")[1]?.trim().toLowerCase() || "no-sale";
+        }
+        // STATUS
+        else if (
+          lowerLine.startsWith("status:") ||
+          lowerLine.startsWith("holat:")
+        ) {
+          const val = cleanLine
+            .substring(cleanLine.indexOf(":") + 1)
+            .trim()
+            .toLowerCase();
+          if (
+            val === "no-active" ||
+            val === "noactive" ||
+            val === "sotildi" ||
+            val === "inactive"
+          ) {
+            status = "no-active";
+          }
+        }
+        // ID
+        else if (lowerLine.startsWith("id:")) {
+          shoeId = cleanLine.substring(cleanLine.indexOf(":") + 1).trim();
+        }
+        // BRAND & NAME & MODEL
+        else if (lowerLine.startsWith("brand:")) {
+          brand = cleanLine.substring(cleanLine.indexOf(":") + 1).trim();
+        } else if (
+          lowerLine.startsWith("card title:") ||
+          lowerLine.startsWith("nomi:")
+        ) {
+          name = cleanLine.substring(cleanLine.indexOf(":") + 1).trim();
+        } else if (
+          lowerLine.startsWith("ref. code / model:") ||
+          lowerLine.startsWith("model:")
+        ) {
+          model = cleanLine.substring(cleanLine.indexOf(":") + 1).trim();
+        }
+        // PRICES
+        else if (lowerLine.startsWith("price uzs:")) {
+          const val = cleanLine.replace(/[^0-9]/g, "");
+          priceUzs = val ? parseInt(val, 10) : 0;
+        } else if (lowerLine.startsWith("price:")) {
+          const val = cleanLine.replace(/[^0-9]/g, "");
+          price = val ? parseInt(val, 10) : 0;
+        }
+        // AUCTION PRICES
+        else if (lowerLine.startsWith("start price uzs:")) {
+          const val = cleanLine.replace(/[^0-9]/g, "");
+          startPriceUzs = val ? parseInt(val, 10) : 0;
+        } else if (lowerLine.startsWith("start price:")) {
+          const val = cleanLine.replace(/[^0-9]/g, "");
+          startPrice = val ? parseInt(val, 10) : 0;
+        } else if (lowerLine.startsWith("bid step uzs:")) {
+          const val = cleanLine.replace(/[^0-9]/g, "");
+          bidStepUzs = val ? parseInt(val, 10) : 0;
+        } else if (lowerLine.startsWith("bid step:")) {
+          const val = cleanLine.replace(/[^0-9]/g, "");
+          bidStep = val ? parseInt(val, 10) : 0;
+        } else if (lowerLine.startsWith("end time:")) {
+          endTime = cleanLine.substring(cleanLine.indexOf(":") + 1).trim();
+        }
+        // SPECS
+        else if (lowerLine.startsWith("sizes:")) {
+          sizes = cleanLine.substring(cleanLine.indexOf(":") + 1).trim();
+        } else if (lowerLine.startsWith("color:")) {
+          color = cleanLine.substring(cleanLine.indexOf(":") + 1).trim();
+        } else if (lowerLine.startsWith("material:")) {
+          material = cleanLine.substring(cleanLine.indexOf(":") + 1).trim();
+        } else if (lowerLine.startsWith("gender:")) {
+          gender = cleanLine.substring(cleanLine.indexOf(":") + 1).trim();
+        } else if (lowerLine.startsWith("season:")) {
+          season = cleanLine.substring(cleanLine.indexOf(":") + 1).trim();
+        }
+        // META
+        else if (
+          lowerLine.startsWith("date:") ||
+          lowerLine.startsWith("sana:")
+        ) {
+          date = cleanLine.substring(cleanLine.indexOf(":") + 1).trim();
+        } else if (lowerLine.startsWith("instagram:")) {
+          instagram = cleanLine.substring(cleanLine.indexOf(":") + 1).trim();
+        } else if (
+          lowerLine.startsWith("description:") ||
+          lowerLine.startsWith("tavsif:")
+        ) {
+          description = cleanLine.substring(cleanLine.indexOf(":") + 1).trim();
+        }
+        // IMAGES (Image1:, Image2: ...)
+        else if (
+          /^image\d*:/i.test(lowerLine) ||
+          /^rasm\d*:/i.test(lowerLine)
+        ) {
+          let extractedUrl = cleanLine
+            .substring(cleanLine.indexOf(":") + 1)
+            .trim();
+          extractedUrl = extractedUrl.replace(/[),.]+$/, "");
 
-    console.log(`✅ Saqlandi [${targetCollection}]: post_${post.message_id}`);
-  } catch (err) {
-    console.error("❌ Firestore Error:", err);
+          if (
+            extractedUrl.startsWith("http://") ||
+            extractedUrl.startsWith("https://")
+          ) {
+            images.push(extractedUrl);
+          }
+        }
+      });
+
+      if (images.length === 0 && anchorImageUrls.length > 0) {
+        images.push(...anchorImageUrls);
+      }
+
+      if (images.length === 0) {
+        const photoNode = msg.querySelector(".tgme_widget_message_photo_wrap");
+        if (photoNode) {
+          const style = photoNode.getAttribute("style") || "";
+          const urlMatch = style.match(/url\(['"]?(.*?)['"]?\)/);
+          if (urlMatch && urlMatch[1]) {
+            images.push(urlMatch[1]);
+          }
+        }
+      }
+
+      // FAQAT 'no-active' BO'LMAGAN OYOQ KIYIMLARNI QO'SHISH
+      if ((name || brand) && status !== "no-active") {
+        const item = {
+          id: shoeId || `${index}-${name}`,
+          shoeId: shoeId || "",
+          type,
+          isSale,
+          status,
+          name,
+          brand,
+          model,
+          price,
+          priceUzs,
+          startPrice,
+          startPriceUzs,
+          bidStep,
+          bidStepUzs,
+          endTime,
+          sizes,
+          color,
+          material,
+          gender,
+          season,
+          date,
+          instagram,
+          description,
+          images,
+          image: images[0] || "",
+        };
+
+        parsedShoes.push(item);
+      }
+    });
+
+    parsedShoes.reverse();
+    return parsedShoes;
+  } catch (error) {
+    console.error("Telegramdan ma'lumot olishda xatolik:", error);
+    return [];
   }
-});
-
-// 5. Render / Web Service uchun HTTP Health Check Server
-const PORT = process.env.PORT || 10000;
-http
-  .createServer((req, res) => {
-    res.writeHead(200, { "Content-Type": "text/plain" });
-    res.end("Watch Bot Active");
-  })
-  .listen(PORT, () => {
-    console.log(`🌐 Web server ${PORT}-portda ishlamoqda...`);
-  });
-
-// 6. Botni Ishga Tushirish
-bot
-  .launch()
-  .then(() => console.log("🤖 Watch Outlet Bot muvaffaqiyatli ishga tushdi!"))
-  .catch((err) => console.error("❌ Botni ishga tushirishda xatolik:", err));
-
-// Graceful Shutdown
-process.once("SIGINT", () => bot.stop("SIGINT"));
-process.once("SIGTERM", () => bot.stop("SIGTERM"));
+};

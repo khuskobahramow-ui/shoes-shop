@@ -3,11 +3,10 @@ import { collection, onSnapshot, query } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 
 export function useCars() {
-  // Komponentlaringizda import xatosi bo'lmasligi uchun nomini useCars qilib saqlab turdik
-  const [cars, setCars] = useState([]); // Yangi oyoq kiyimlar
-  const [usedCars, setUsedCars] = useState([]); // Ishlatilgan (B/U)
-  const [installmentCars, setInstallmentCars] = useState([]); // Muddatli to'lov (Nasiya)
-  const [allCars, setAllCars] = useState([]); // Barchasi
+  const [cars, setCars] = useState([]); // Barcha active oyoq kiyimlar (shoes)
+  const [usedCars, setUsedCars] = useState([]); // Sale (Skidkadagi) mahsulotlar (IsSale === "sale")
+  const [installmentCars, setInstallmentCars] = useState([]); // Auksiondagi mahsulotlar (auctions)
+  const [allCars, setAllCars] = useState([]); // Barchasi jamlanmasi
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -15,73 +14,78 @@ export function useCars() {
   useEffect(() => {
     setLoading(true);
 
-    // Oldingi "watches" yoki REST API kesh o'rniga to'g'ridan-to me'yoriy Real-time Snapshot
-    // Telegram botingiz qaysi kolleksiyaga yozayotgan bo'lsa o'shani o'qiydi (masalan "shoes" yoki "watches")
-    const q = query(collection(db, "watches"));
+    // Firestore to'plamlariga so'rov (shoes va auctions)
+    const qShoes = query(collection(db, "shoes"));
+    const qAuctions = query(collection(db, "auctions"));
 
-    const unsubscribe = onSnapshot(
-      q,
+    let shoesList = [];
+    let auctionsList = [];
+
+    const updateStates = () => {
+      // Status active bo'lganlarni filtrlash
+      const activeShoes = shoesList.filter(
+        (item) => String(item.status).toLowerCase() === "active"
+      );
+      const activeAuctions = auctionsList.filter(
+        (item) => String(item.status).toLowerCase() === "active"
+      );
+
+      // Sale (skidka) va oddiy mahsulotlarga ajratish
+      const saleList = activeShoes.filter(
+        (item) => String(item.isSale).toLowerCase() === "sale"
+      );
+
+      setCars(activeShoes);
+      setUsedCars(saleList);
+      setInstallmentCars(activeAuctions);
+      setAllCars([...activeShoes, ...activeAuctions]);
+
+      setLoading(false);
+      setRefreshing(false);
+    };
+
+    // Shoes collection eshituvchisi
+    const unsubShoes = onSnapshot(
+      qShoes,
       (snapshot) => {
-        const formattedNew = [];
-        const formattedUsed = [];
-        const formattedInstallment = [];
-
-        const combinedAll = snapshot.docs.map((doc) => {
-          const data = doc.data();
-          const id = doc.id;
-          const type = String(data.type || "").toLowerCase();
-
-          const isUsed =
-            data.isUsed === true ||
-            type === "used" ||
-            type === "ishlatilgan" ||
-            type === "b/u";
-
-          const isInstallment =
-            data.isInstallment === true ||
-            type === "installment" ||
-            type === "nasiya";
-
-          const item = {
-            id,
-            ...data,
-            isUsed,
-            isInstallment,
-            type: type || "market",
-          };
-
-          if (isUsed) {
-            formattedUsed.push(item);
-          } else if (isInstallment) {
-            formattedInstallment.push(item);
-          } else {
-            formattedNew.push(item);
-          }
-
-          return item;
-        });
-
-        setCars(formattedNew);
-        setUsedCars(formattedUsed);
-        setInstallmentCars(formattedInstallment);
-        setAllCars(combinedAll);
-
-        setLoading(false);
-        setRefreshing(false);
+        shoesList = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+          type: doc.data().type || "market",
+        }));
+        updateStates();
       },
       (error) => {
-        console.error("Firebase Snapshot xatoligi:", error);
+        console.error("Shoes snapshot xatoligi:", error);
         setLoading(false);
-        setRefreshing(false);
       }
     );
 
-    return () => unsubscribe();
+    // Auctions collection eshituvchisi
+    const unsubAuctions = onSnapshot(
+      qAuctions,
+      (snapshot) => {
+        auctionsList = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+          type: "auction",
+        }));
+        updateStates();
+      },
+      (error) => {
+        console.error("Auctions snapshot xatoligi:", error);
+        setLoading(false);
+      }
+    );
+
+    return () => {
+      unsubShoes();
+      unsubAuctions();
+    };
   }, []);
 
   const refresh = useCallback(() => {
     setRefreshing(true);
-    // Real-time listen bo'lgani uchun alohida qayta yuklash shart emas, ammo tugma bosilganda darhol holatni yangilaydi
     setTimeout(() => setRefreshing(false), 500);
   }, []);
 

@@ -1,25 +1,31 @@
 import React, { useEffect, useState } from "react";
-import { LuHeart, LuCalendar } from "react-icons/lu";
+import { LuHeart, LuTag, LuGavel } from "react-icons/lu";
 import { FaHeart } from "react-icons/fa";
 import CarDetailModal from "./CarDetailModal.jsx";
 import { isCarLiked, toggleCarLike } from "./Likes";
 import PriceTag from "../comps/PriceTag";
 
-const CarCard = ({ car: watch }) => {
-  const watchTitle =
-    watch?.name ||
-    `${watch?.brand || ""} ${watch?.model || ""}`.trim() ||
-    "Soat";
+const CarCard = ({ car: shoe }) => {
+  const shoeTitle =
+    shoe?.name ||
+    shoe?.cardTitle ||
+    `${shoe?.brand || ""} ${shoe?.model || ""}`.trim() ||
+    "Oyoq kiyim";
 
-  const watchPrice = Number(
-    watch?.price || watch?.startingPrice || watch?.totalPrice || 0
+  const isAuction = shoe?.type === "auction";
+  const isSale = shoe?.isSale === "sale";
+
+  // Narx (Auksion uchun startPrice, market uchun price)
+  const shoePrice = Number(
+    shoe?.price || shoe?.startPrice || shoe?.startingPrice || 0
   );
+  const shoePriceUzs = Number(shoe?.priceUzs || shoe?.startPriceUzs || 0);
 
   const [isLiked, setIsLiked] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
 
-  const docId = watch?.id || watch?.watchId || watch?.messageId;
+  const docId = shoe?.id || shoe?.shoeId || shoe?.watchId || shoe?.messageId;
 
   useEffect(() => {
     if (docId) setIsLiked(isCarLiked(docId));
@@ -35,21 +41,28 @@ const CarCard = ({ car: watch }) => {
   };
 
   const imageUrl =
-    watch?.image ||
-    (Array.isArray(watch?.images) && watch.images.length > 0
-      ? watch.images[0]
+    shoe?.image ||
+    (Array.isArray(shoe?.images) && shoe.images.length > 0
+      ? shoe.images[0]
       : "");
 
-  // 1. Agar ma'lumot bo'lmasa yoki sarlavha va narx bo'lmasa kartochka chiqmaydi
-  if (!watch || (!watchTitle && watchPrice === 0)) return null;
+  // Razmerlarni massivga o'tkazish
+  const sizeList = shoe?.sizes
+    ? String(shoe.sizes)
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : [];
 
-  // 2. Status tekshiruvi: Agar status mavjud bo'lib, u "active" bo'lmasa
-  // kartochka render qilinmaydi
-  const currentStatus = String(watch?.status || "")
+  // 1. Agar ma'lumot bo'lmasa yoki sarlavha va narx bo'lmasa kartochka chiqmaydi
+  if (!shoe || (!shoeTitle && shoePrice === 0)) return null;
+
+  // 2. Status tekshiruvi: Agar status mavjud bo'lib, u "active" bo'lmasa kartochka render qilinmaydi
+  const currentStatus = String(shoe?.status || "")
     .toLowerCase()
     .trim();
 
-  if (watch?.status && currentStatus !== "active") {
+  if (shoe?.status && currentStatus !== "active") {
     return null;
   }
 
@@ -71,7 +84,7 @@ const CarCard = ({ car: watch }) => {
           {imageUrl ? (
             <img
               src={imageUrl}
-              alt={watchTitle}
+              alt={shoeTitle}
               loading="lazy"
               decoding="async"
               onLoad={() => setImageLoaded(true)}
@@ -89,18 +102,23 @@ const CarCard = ({ car: watch }) => {
             </div>
           )}
 
-          {/* BADGELAR (Brend va B/U) */}
+          {/* BADGELAR (Brend, Sale va Auksion) */}
           <div className="absolute flex-col top-2.5 left-2.5 flex items-start gap-1 z-10">
-            {watch?.brand && (
+            {shoe?.brand && (
               <span className="bg-black/60 backdrop-blur-md text-white text-[8px] font-semibold px-2 py-0.5 rounded-md border border-white/10 uppercase">
-                {watch.brand}
+                {shoe.brand}
               </span>
             )}
 
-            {/* Faqat isUsed haqiqatan true bo'lsa B/U chiqadi */}
-            {watch?.isUsed === true && (
-              <span className="bg-amber-500 text-black text-[9px] font-extrabold px-1.5 py-0.5 rounded-md shadow-md tracking-wider">
-                Б/у
+            {isAuction && (
+              <span className="bg-rose-600 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-md shadow-md tracking-wider flex items-center gap-0.5">
+                <LuGavel className="text-[10px]" /> Auksion
+              </span>
+            )}
+
+            {!isAuction && isSale && (
+              <span className="bg-amber-500 text-black text-[9px] font-extrabold px-1.5 py-0.5 rounded-md shadow-md tracking-wider flex items-center gap-0.5">
+                <LuTag className="text-[10px]" /> Sale
               </span>
             )}
           </div>
@@ -123,36 +141,50 @@ const CarCard = ({ car: watch }) => {
         <div className="p-2.5 flex flex-col flex-1 justify-between gap-2">
           <div>
             <h3 className="font-bold text-[13px] text-white leading-snug line-clamp-1 mb-1">
-              {watchTitle}
+              {shoeTitle}
             </h3>
 
-            <PriceTag usd={watchPrice} size="sm" className="mb-1" />
-
-            <div className="flex items-center gap-1.5 text-xs font-medium text-slate-400">
-              <span>
-                {watch?.mechanism || watch?.caseMaterial || "Mexanika"}
-              </span>
-
-              {watch?.diameter && (
-                <>
-                  <span>•</span>
-                  <span>{watch.diameter}</span>
-                </>
+            {/* Price section */}
+            <div className="flex items-baseline gap-1.5 mb-1">
+              <PriceTag usd={shoePrice} size="sm" />
+              {shoePriceUzs > 0 && (
+                <span className="text-[10px] text-slate-400 font-medium">
+                  ({shoePriceUzs.toLocaleString()} UZS)
+                </span>
               )}
             </div>
-          </div>
 
-          <div className="pt-2 border-t border-slate-700/60 flex justify-end items-center text-[11px] text-slate-400 font-medium">
-            <div className="flex items-center gap-1 shrink-0">
-              <LuCalendar className="text-slate-400" />
-              <span>{watch?.date || "Bugun"}</span>
+            {/* Specs: Color & Material */}
+            <div className="flex items-center gap-1.5 text-xs font-medium text-slate-400 mb-2">
+              {shoe?.color && <span>{shoe.color}</span>}
+              {shoe?.color && shoe?.material && <span>•</span>}
+              {shoe?.material && <span>{shoe.material}</span>}
             </div>
+
+            {/* RAZMERLAR SLIDER QISMI (Scrollable horizontal slider) */}
+            {sizeList.length > 0 && (
+              <div className="mt-1">
+                <span className="text-[9px] uppercase font-bold text-slate-500 block mb-0.5">
+                  Razmerlar:
+                </span>
+                <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5 scroll-smooth">
+                  {sizeList.map((sz, idx) => (
+                    <span
+                      key={idx}
+                      className="flex-shrink-0 px-1.5 py-0.5 bg-slate-800 border border-slate-700 text-slate-200 text-[10px] rounded font-medium"
+                    >
+                      {sz}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
       {showDetail && (
-        <CarDetailModal car={watch} onClose={() => setShowDetail(false)} />
+        <CarDetailModal car={shoe} onClose={() => setShowDetail(false)} />
       )}
     </>
   );
