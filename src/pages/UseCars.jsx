@@ -3,10 +3,10 @@ import { collection, onSnapshot, query } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 
 export function useCars() {
-  const [cars, setCars] = useState([]); // Barcha active oyoq kiyimlar (shoes)
-  const [usedCars, setUsedCars] = useState([]); // Sale (Skidkadagi) mahsulotlar (IsSale === "sale")
-  const [installmentCars, setInstallmentCars] = useState([]); // Auksiondagi mahsulotlar (auctions)
-  const [allCars, setAllCars] = useState([]); // Barchasi jamlanmasi
+  const [cars, setCars] = useState([]);
+  const [usedCars, setUsedCars] = useState([]);
+  const [installmentCars, setInstallmentCars] = useState([]);
+  const [allCars, setAllCars] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -14,23 +14,22 @@ export function useCars() {
   useEffect(() => {
     setLoading(true);
 
-    // Firestore to'plamlariga so'rov (shoes va auctions)
-    const qShoes = query(collection(db, "shoes"));
+    // Bazada "watches" ham, "shoes" ham bo'lishi mumkinligi uchun "watches" ga ulaymiz
+    const qShoes = query(collection(db, "watches"));
     const qAuctions = query(collection(db, "auctions"));
 
     let shoesList = [];
     let auctionsList = [];
 
     const updateStates = () => {
-      // Status active bo'lganlarni filtrlash
+      // Status 'no-active' bo'lmagan barchasini ko'rsatish (status kiritilmagan bo'lsa ham ko'rsatadi)
       const activeShoes = shoesList.filter(
-        (item) => String(item.status).toLowerCase() === "active"
+        (item) => String(item.status || "active").toLowerCase() !== "no-active"
       );
       const activeAuctions = auctionsList.filter(
-        (item) => String(item.status).toLowerCase() === "active"
+        (item) => String(item.status || "active").toLowerCase() !== "no-active"
       );
 
-      // Sale (skidka) va oddiy mahsulotlarga ajratish
       const saleList = activeShoes.filter(
         (item) => String(item.isSale).toLowerCase() === "sale"
       );
@@ -44,7 +43,6 @@ export function useCars() {
       setRefreshing(false);
     };
 
-    // Shoes collection eshituvchisi
     const unsubShoes = onSnapshot(
       qShoes,
       (snapshot) => {
@@ -56,12 +54,11 @@ export function useCars() {
         updateStates();
       },
       (error) => {
-        console.error("Shoes snapshot xatoligi:", error);
+        console.error("Snapshot xatoligi:", error);
         setLoading(false);
       }
     );
 
-    // Auctions collection eshituvchisi
     const unsubAuctions = onSnapshot(
       qAuctions,
       (snapshot) => {

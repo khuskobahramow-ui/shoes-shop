@@ -100,15 +100,28 @@ export const fetchShoesFromTelegram = async () => {
 
       const images = [];
 
+      // Yordamchi tekshiruv: havolaning ijtimoiy tarmoq linki ekanligini aniqlash
+      const isSocialMediaUrl = (url) => {
+        if (!url) return true;
+        const lowerUrl = url.toLowerCase();
+        return (
+          lowerUrl.includes("instagram.com") ||
+          lowerUrl.includes("youtube.com") ||
+          lowerUrl.includes("youtu.be") ||
+          lowerUrl.includes("t.me")
+        );
+      };
+
       const anchors = textNode.querySelectorAll("a");
       const anchorImageUrls = [];
 
       for (const anchor of anchors) {
         const href = anchor.getAttribute("href") || "";
         const isImage =
-          href.includes("cloudinary.com") ||
-          href.includes("ibb.co") ||
-          /\.(webp|jpg|jpeg|png)(\?.*)?$/i.test(href);
+          (href.includes("cloudinary.com") ||
+            href.includes("ibb.co") ||
+            /\.(webp|jpg|jpeg|png)(\?.*)?$/i.test(href)) &&
+          !isSocialMediaUrl(href);
 
         if (isImage) {
           anchorImageUrls.push(href);
@@ -204,10 +217,18 @@ export const fetchShoesFromTelegram = async () => {
         } else if (lowerLine.startsWith("end time:")) {
           endTime = cleanLine.substring(cleanLine.indexOf(":") + 1).trim();
         }
-        // SPECS
-        else if (lowerLine.startsWith("sizes:")) {
+        // SPECS (Sizes, Color, Material, Gender, Season)
+        else if (
+          lowerLine.startsWith("sizes:") ||
+          lowerLine.startsWith("size:") ||
+          lowerLine.startsWith("razmer:") ||
+          lowerLine.startsWith("o'lcham:")
+        ) {
           sizes = cleanLine.substring(cleanLine.indexOf(":") + 1).trim();
-        } else if (lowerLine.startsWith("color:")) {
+        } else if (
+          lowerLine.startsWith("color:") ||
+          lowerLine.startsWith("rangi:")
+        ) {
           color = cleanLine.substring(cleanLine.indexOf(":") + 1).trim();
         } else if (lowerLine.startsWith("material:")) {
           material = cleanLine.substring(cleanLine.indexOf(":") + 1).trim();
@@ -230,7 +251,7 @@ export const fetchShoesFromTelegram = async () => {
         ) {
           description = cleanLine.substring(cleanLine.indexOf(":") + 1).trim();
         }
-        // IMAGES (Image1:, Image2: ...)
+        // IMAGES
         else if (
           /^image\d*:/i.test(lowerLine) ||
           /^rasm\d*:/i.test(lowerLine)
@@ -241,8 +262,9 @@ export const fetchShoesFromTelegram = async () => {
           extractedUrl = extractedUrl.replace(/[),.]+$/, "");
 
           if (
-            extractedUrl.startsWith("http://") ||
-            extractedUrl.startsWith("https://")
+            (extractedUrl.startsWith("http://") ||
+              extractedUrl.startsWith("https://")) &&
+            !isSocialMediaUrl(extractedUrl)
           ) {
             images.push(extractedUrl);
           }
@@ -258,14 +280,15 @@ export const fetchShoesFromTelegram = async () => {
         if (photoNode) {
           const style = photoNode.getAttribute("style") || "";
           const urlMatch = style.match(/url\(['"]?(.*?)['"]?\)/);
-          if (urlMatch && urlMatch[1]) {
+          if (urlMatch && urlMatch[1] && !isSocialMediaUrl(urlMatch[1])) {
             images.push(urlMatch[1]);
           }
         }
       }
 
-      // FAQAT 'no-active' BO'LMAGAN OYOQ KIYIMLARNI QO'SHISH
       if ((name || brand) && status !== "no-active") {
+        const validImages = images.filter((img) => !isSocialMediaUrl(img));
+
         const item = {
           id: shoeId || `${index}-${name}`,
           shoeId: shoeId || "",
@@ -290,8 +313,8 @@ export const fetchShoesFromTelegram = async () => {
           date,
           instagram,
           description,
-          images,
-          image: images[0] || "",
+          images: validImages,
+          image: validImages[0] || "",
         };
 
         parsedShoes.push(item);

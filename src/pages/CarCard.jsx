@@ -40,29 +40,57 @@ const CarCard = ({ car: shoe }) => {
     }
   };
 
-  const imageUrl =
-    shoe?.image ||
-    (Array.isArray(shoe?.images) && shoe.images.length > 0
-      ? shoe.images[0]
-      : "");
+  // HAQIQIY RASMNI TOPISH (Instagram/Social linklarni tashlab yuborish)
+  const getValidImage = () => {
+    const allImages = [];
 
-  // Razmerlarni massivga o'tkazish
-  const sizeList = shoe?.sizes
-    ? String(shoe.sizes)
-        .split(",")
+    if (Array.isArray(shoe?.images)) {
+      allImages.push(...shoe.images);
+    }
+    if (shoe?.image) {
+      allImages.unshift(shoe.image);
+    }
+
+    const cleanImage = allImages.find(
+      (img) =>
+        typeof img === "string" &&
+        !img.includes("instagram.com") &&
+        !img.includes("youtube.com") &&
+        !img.includes("youtu.be") &&
+        (img.startsWith("http://") || img.startsWith("https://"))
+    );
+
+    return cleanImage || "";
+  };
+
+  const imageUrl = getValidImage();
+
+  // RAZMERLARNI HAR XIL FORMATLARDAN XAVFSIZ AJRATIB OLISH
+  const getParsedSizes = () => {
+    const raw = shoe?.sizes || shoe?.size || shoe?.sizesList || "";
+    if (Array.isArray(raw)) {
+      return raw.map((s) => String(s).trim()).filter(Boolean);
+    }
+    if (typeof raw === "string" || typeof raw === "number") {
+      return String(raw)
+        .split(/[,;\s]+/)
         .map((s) => s.trim())
-        .filter(Boolean)
-    : [];
+        .filter(Boolean);
+    }
+    return [];
+  };
+
+  const sizeList = getParsedSizes();
 
   // 1. Agar ma'lumot bo'lmasa yoki sarlavha va narx bo'lmasa kartochka chiqmaydi
   if (!shoe || (!shoeTitle && shoePrice === 0)) return null;
 
-  // 2. Status tekshiruvi: Agar status mavjud bo'lib, u "active" bo'lmasa kartochka render qilinmaydi
+  // 2. Status tekshiruvi: Faqat "no-active" deb yozilgan bo'lsagina yashiriladi
   const currentStatus = String(shoe?.status || "")
     .toLowerCase()
     .trim();
 
-  if (shoe?.status && currentStatus !== "active") {
+  if (currentStatus === "no-active") {
     return null;
   }
 
@@ -74,7 +102,7 @@ const CarCard = ({ car: shoe }) => {
       >
         {/* RASM BO'LIMI */}
         <div className="relative w-full h-44 bg-slate-900 overflow-hidden shrink-0">
-          {/* Rasm yuklanguncha ko'rinadigan Skeleton */}
+          {/* Skeleton Loader */}
           {!imageLoaded && imageUrl && (
             <div className="absolute inset-0 bg-slate-800 animate-pulse flex items-center justify-center">
               <span className="text-[10px] text-slate-500">Yuklanmoqda...</span>
@@ -144,8 +172,8 @@ const CarCard = ({ car: shoe }) => {
               {shoeTitle}
             </h3>
 
-            {/* Price section */}
-            <div className="flex items-baseline gap-1.5 mb-1">
+            {/* Price section (NARX) */}
+            <div className="flex items-baseline flex-wrap gap-1 mb-1">
               <PriceTag usd={shoePrice} size="sm" />
               {shoePriceUzs > 0 && (
                 <span className="text-[10px] text-slate-400 font-medium">
@@ -154,29 +182,31 @@ const CarCard = ({ car: shoe }) => {
               )}
             </div>
 
-            {/* Specs: Color & Material */}
-            <div className="flex items-center gap-1.5 text-xs font-medium text-slate-400 mb-2">
-              {shoe?.color && <span>{shoe.color}</span>}
-              {shoe?.color && shoe?.material && <span>•</span>}
-              {shoe?.material && <span>{shoe.material}</span>}
-            </div>
-
-            {/* RAZMERLAR SLIDER QISMI (Scrollable horizontal slider) */}
+            {/* NARXNING PASTIDA NARXLARDAN KEYIN CHEKSIZ SLIDER RAZMERLAR */}
             {sizeList.length > 0 && (
-              <div className="mt-1">
-                <span className="text-[9px] uppercase font-bold text-slate-500 block mb-0.5">
-                  Razmerlar:
-                </span>
+              <div className="mt-1.5 pt-1.5 border-t border-slate-800/80">
                 <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5 scroll-smooth">
+                  <span className="text-[9px] uppercase font-bold text-slate-400 shrink-0 mr-0.5">
+                    Razmer:
+                  </span>
                   {sizeList.map((sz, idx) => (
                     <span
                       key={idx}
-                      className="flex-shrink-0 px-1.5 py-0.5 bg-slate-800 border border-slate-700 text-slate-200 text-[10px] rounded font-medium"
+                      className="shrink-0 px-1.5 py-0.5 bg-slate-800/90 border border-slate-700/80 text-amber-400 text-[10px] rounded font-semibold"
                     >
                       {sz}
                     </span>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* Specs: Color & Material */}
+            {(shoe?.color || shoe?.material) && (
+              <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-400 mt-1.5">
+                {shoe?.color && <span>{shoe.color}</span>}
+                {shoe?.color && shoe?.material && <span>•</span>}
+                {shoe?.material && <span>{shoe.material}</span>}
               </div>
             )}
           </div>
