@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { initializeFirestore } from "firebase/firestore";
+import { initializeFirestore, memoryLocalCache } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -12,9 +12,9 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-// Firebase'ga Long Polling rejimini to'g'ri o'rnatamiz
+// Keshlash muammosini oldini olish va real-time ma'lumotlarni tezkor olish sozlamasi
 export const db = initializeFirestore(app, {
-  experimentalAutoDetectLongPolling: true,
+  localCache: memoryLocalCache(), // Brauzerda eski narxlar saqlanib qolmasligi uchun keshni xotiraga o'tkazamiz
 });
 
 export default app;
