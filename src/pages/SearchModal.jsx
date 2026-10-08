@@ -102,7 +102,7 @@ const SearchModal = ({
             autoFocus
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Soat nomi yoki Ref. Code..."
+            placeholder="Search..."
             className="w-full bg-slate-100 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 outline-none focus:ring-2 focus:ring-blue-500/20"
           />
         </div>

@@ -7,6 +7,7 @@ import {
   LuPlus,
   LuHeart,
   LuGavel,
+  LuTag,
 } from "react-icons/lu";
 import { FaTelegramPlane } from "react-icons/fa";
 import { FiWatch } from "react-icons/fi";
@@ -32,7 +33,7 @@ const BottomNav = () => {
 
         {/* 2. Bozor */}
         <NavLink
-          to="/used-watches"
+          to="/sale"
           className={({ isActive }) =>
             `flex flex-col items-center justify-center flex-1 py-1 transition-all duration-200 ${
               isActive
@@ -41,8 +42,8 @@ const BottomNav = () => {
             }`
           }
         >
-          <FiWatch className="text-xl mb-0.5" />
-          <span className="text-[10px]">Б/у watches</span>
+          <LuTag className="text-xl" />
+          <span className="text-[10px]">Sale</span>
         </NavLink>
 
         {/* 3. Sotish (O'rtadagi katta tugma) */}

@@ -13,7 +13,7 @@ const SearchBar = ({ onOpenSearch, onOpenFilter }) => {
         >
           <FiSearch size={18} className="text-slate-400 flex-shrink-0" />
           <span className="truncate text-xs font-medium text-slate-400">
-            Soat nomi yoki Ref. Code bo'yicha topish...
+            Search...
           </span>
         </button>
 

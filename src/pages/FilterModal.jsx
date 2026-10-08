@@ -10,6 +10,7 @@ import CarCard from "./CarCard";
 
 const FilterModal = ({ isOpen, onClose, cars = [] }) => {
   const [selectedBrand, setSelectedBrand] = useState("All");
+  const [selectedSize, setSelectedSize] = useState("All"); // Razmer bo'yicha filter state
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
 
@@ -32,12 +33,12 @@ const FilterModal = ({ isOpen, onClose, cars = [] }) => {
     };
   }, [isOpen]);
 
-  // Brend, narx yoki modal holati o'zgarganda pagination'ni 15 taga reset qilish
+  // Brend, razmer, narx yoki modal holati o'zgarganda pagination'ni 15 taga reset qilish
   useEffect(() => {
     setVisibleCount(15);
-  }, [selectedBrand, minPrice, maxPrice, isOpen]);
+  }, [selectedBrand, selectedSize, minPrice, maxPrice, isOpen]);
 
-  // Bazadagi soat ma'lumotlaridan brendlar ro'yxatini dinamik shakllantirish
+  // Bazadagi mahsulotlardan brendlar ro'yxatini dinamik shakllantirish
   const availableBrands = useMemo(() => {
     const brandsSet = new Set();
     const safeCars = Array.isArray(cars) ? cars : [];
@@ -49,7 +50,31 @@ const FilterModal = ({ isOpen, onClose, cars = [] }) => {
     return ["All", ...Array.from(brandsSet)];
   }, [cars]);
 
-  // Filtrlash mantiqi (Faqat Brend va Narx)
+  // Bazadagi mahsulotlardan mavjud razmerlarni dinamik shakllantirish va tartiblash
+  const availableSizes = useMemo(() => {
+    const sizesSet = new Set();
+    const safeCars = Array.isArray(cars) ? cars : [];
+    safeCars.forEach((item) => {
+      const rawSizes = item?.sizes || item?.sizeList || item?.razmer || [];
+      const list = Array.isArray(rawSizes)
+        ? rawSizes
+        : typeof rawSizes === "string"
+        ? rawSizes.split(/[\s,]+/).filter(Boolean)
+        : [];
+      list.forEach((sz) => {
+        if (sz) sizesSet.add(String(sz).trim());
+      });
+    });
+    // Tartiblash (raqamli yoki alfavit bo'yicha)
+    const sortedSizes = Array.from(sizesSet).sort((a, b) => {
+      return !isNaN(a) && !isNaN(b)
+        ? Number(a) - Number(b)
+        : a.localeCompare(b);
+    });
+    return ["All", ...sortedSizes];
+  }, [cars]);
+
+  // Filtrlash mantiqi (Brend, Razmer va Narx)
   const safeCars = Array.isArray(cars) ? cars : [];
   const filteredCars = safeCars.filter((car) => {
     if (!car) return false;
@@ -58,6 +83,21 @@ const FilterModal = ({ isOpen, onClose, cars = [] }) => {
     if (selectedBrand !== "All") {
       const carBrand = String(car?.brand || "").toLowerCase();
       if (carBrand !== selectedBrand.toLowerCase()) return false;
+    }
+
+    // Razmer bo'yicha saralash
+    if (selectedSize !== "All") {
+      const rawSizes = car?.sizes || car?.sizeList || car?.razmer || [];
+      const carSizes = Array.isArray(rawSizes)
+        ? rawSizes.map((s) => String(s).trim())
+        : typeof rawSizes === "string"
+        ? rawSizes
+            .split(/[\s,]+/)
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : [];
+
+      if (!carSizes.includes(String(selectedSize))) return false;
     }
 
     // Narx bo'yicha saralash
@@ -91,6 +131,7 @@ const FilterModal = ({ isOpen, onClose, cars = [] }) => {
 
   const handleReset = () => {
     setSelectedBrand("All");
+    setSelectedSize("All");
     setMinPrice("");
     setMaxPrice("");
     setVisibleCount(15);
@@ -132,11 +173,34 @@ const FilterModal = ({ isOpen, onClose, cars = [] }) => {
                   onClick={() => setSelectedBrand(brand)}
                   className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-200 ${
                     selectedBrand === brand
-                      ? "bg-blue-600 text-white shadow-md shadow-blue-500/20 scale-105"
+                      ? "bg-amber-400 text-black"
                       : "bg-[#162238] text-white border border-slate-600/60 hover:bg-[#1f2d4a]"
                   }`}
                 >
                   {brand === "All" ? "All" : brand}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Razmer bo'yicha filtr */}
+          <div>
+            <label className="block text-[11px] font-bold text-white uppercase tracking-wider mb-2">
+              Razmer bo'yicha
+            </label>
+            <div className="flex pl-[5px] items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden py-1">
+              {availableSizes.map((size) => (
+                <button
+                  key={size}
+                  type="button"
+                  onClick={() => setSelectedSize(size)}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-200 ${
+                    selectedSize === size
+                      ? "bg-amber-400 text-black"
+                      : "bg-[#162238] text-white border border-slate-600/60 hover:bg-[#1f2d4a]"
+                  }`}
+                >
+                  {size === "All" ? "All" : size}
                 </button>
               ))}
             </div>
@@ -215,7 +279,7 @@ const FilterModal = ({ isOpen, onClose, cars = [] }) => {
             </>
           ) : (
             <div className="text-center py-12 text-slate-400 text-sm">
-              Kiritilgan mezonlarga mos soat topilmadi.
+              Kiritilgan mezonlarga mos mahsulot topilmadi.
             </div>
           )}
         </div>
