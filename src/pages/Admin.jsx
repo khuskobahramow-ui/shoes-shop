@@ -6,6 +6,7 @@ import {
   query,
   doc,
   updateDoc,
+  deleteDoc,
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
@@ -15,6 +16,7 @@ import {
   LuSend,
   LuImage,
   LuShoppingBag,
+  LuTrash2,
 } from "react-icons/lu";
 import { FiUploadCloud } from "react-icons/fi";
 import { FaCheckCircle } from "react-icons/fa";
@@ -23,6 +25,12 @@ import axios from "axios";
 
 const ADMIN_PIN = "2026avtotek";
 const IMGBB_API_KEY = "0bf75dea880937d78cf5e554ed16a2e1";
+
+// .env faylidan olinadigan kalitlar
+const BOT_TOKEN = import.meta.env.VITE_TELEGRAM_BOT_TOKEN;
+const APPROVED_CHANNEL_ID = import.meta.env.VITE_APPROVED_CHANNEL_ID || "";
+const ADMIN_TELEGRAM_URL =
+  import.meta.env.VITE_ADMIN_TELEGRAM_URL || "https://t.me/xusan728";
 
 const Admin = () => {
   const [authorized, setAuthorized] = useState(false);
@@ -97,21 +105,92 @@ const Admin = () => {
     }
   };
 
-  const handleApproveOrder = async (orderId) => {
+  // Buyurtmani tasdiqlash va xabarlarni jo'natish
+  const handleApproveOrder = async (order) => {
     try {
-      const orderRef = doc(db, "orders", orderId);
+      const orderRef = doc(db, "orders", order.id);
       await updateDoc(orderRef, {
         status: "approved",
         approvedAt: serverTimestamp(),
       });
+
       setOrders((prev) =>
         prev.map((ord) =>
-          ord.id === orderId ? { ...ord, status: "approved" } : ord
+          ord.id === order.id ? { ...ord, status: "approved" } : ord
         )
       );
+
+      if (BOT_TOKEN) {
+        const currentDate = new Date().toLocaleString("ru-RU");
+
+        const messageText =
+          `✅ <b>BUYURTMA TASDIQLANDI!</b>\n\n` +
+          `👟 <b>Mahsulot:</b> ${order.productName || "Oyoq kiyim"}\n` +
+          `📏 <b>Razmer:</b> <code>${order.selectedSize || "-"}</code>\n` +
+          `💰 <b>Narx:</b> $${order.price || 0}\n` +
+          `📞 <b>Telefon:</b> +998900770728\n` +
+          `📅 <b>Sana:</b> ${currentDate}\n\n` +
+          `🙏 <b>Xaridingiz uchun rahmat!</b> Ishonchingizni qadrlaymiz.\n\n` +
+          `💬 Savollar bo'yicha: <a href="${ADMIN_TELEGRAM_URL}">Admin bilan bog'lanish</a>`;
+
+        // 1. Mijozning shaxsiy chatiga xabar yuborish
+        if (order.telegramId && order.telegramId !== "Noma'lum") {
+          await axios.post(
+            `https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`,
+            {
+              chat_id: order.telegramId,
+              photo: order.productImage || "https://via.placeholder.com/300",
+              caption: messageText,
+              parse_mode: "HTML",
+            }
+          );
+        }
+
+        // 2. Tasdiqlanganlar kanaliga xabar yuborish
+        if (APPROVED_CHANNEL_ID) {
+          const channelText =
+            `🎉 <b>YANGI TASDIQLANGAN BUYURTMA</b>\n\n` +
+            `👟 <b>Mahsulot:</b> ${order.productName || "Oyoq kiyim"}\n` +
+            `📏 <b>Razmer:</b> <code>${order.selectedSize || "-"}</code>\n` +
+            `💰 <b>Narx:</b> $${order.price || 0}\n` +
+            `👤 <b>Mijoz:</b> ${order.firstName || ""} ${
+              order.lastName || ""
+            } (@${order.username || "yo'q"})\n` +
+            `📞 <b>Telefon:</b> <code>${
+              order.phone || order.clientPhone || "-"
+            }</code>\n` +
+            `📅 <b>Sana:</b> ${currentDate}`;
+
+          await axios.post(
+            `https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`,
+            {
+              chat_id: APPROVED_CHANNEL_ID,
+              photo: order.productImage || "https://via.placeholder.com/300",
+              caption: channelText,
+              parse_mode: "HTML",
+            }
+          );
+        }
+      }
+
+      alert("Buyurtma muvaffaqiyatli tasdiqlandi va xabarlar yuborildi!");
     } catch (error) {
       console.error("Buyurtmani tasdiqlashda xatolik:", error);
       alert("Tasdiqlashda xatolik yuz berdi.");
+    }
+  };
+
+  // Buyurtmani bazadan va ro'yxatdan o'chirish
+  const handleDeleteOrder = async (orderId) => {
+    if (!window.confirm("Haqiqatan ham bu buyurtmani o'chirmoqchimisiz?"))
+      return;
+    try {
+      await deleteDoc(doc(db, "orders", orderId));
+      setOrders((prev) => prev.filter((ord) => ord.id !== orderId));
+      alert("Buyurtma muvaffaqiyatli o'chirildi!");
+    } catch (error) {
+      console.error("Buyurtmani o'chirishda xatolik:", error);
+      alert("O'chirishda xatolik yuz berdi.");
     }
   };
 
@@ -250,7 +329,7 @@ const Admin = () => {
               {orders.map((order) => (
                 <div
                   key={order.id}
-                  className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex flex-col gap-3"
+                  className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex flex-col gap-3 relative"
                 >
                   <div className="flex items-start gap-3">
                     {order.productImage ? (
@@ -279,7 +358,6 @@ const Admin = () => {
                         </span>
                       </div>
 
-                      {/* Xaridor haqida ma'lumotlar */}
                       <div className="mt-2 pt-2 border-t border-slate-100 flex items-center gap-2">
                         {order.photoUrl ? (
                           <img
@@ -322,7 +400,7 @@ const Admin = () => {
                       </div>
                     </div>
 
-                    <div className="shrink-0">
+                    <div className="shrink-0 flex flex-col items-end gap-2">
                       <span
                         className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold ${
                           order.status === "approved"
@@ -334,6 +412,15 @@ const Admin = () => {
                           ? "✅ Tasdiqlangan"
                           : "⏳ Kutilmoqda"}
                       </span>
+
+                      {/* O'chirish tugmasi */}
+                      <button
+                        onClick={() => handleDeleteOrder(order.id)}
+                        className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"
+                        title="Buyurtmani o'chirish"
+                      >
+                        <LuTrash2 size={18} />
+                      </button>
                     </div>
                   </div>
 
@@ -341,7 +428,7 @@ const Admin = () => {
                     <div>Sana: {formatDate(order.createdAt)}</div>
                     {order.status !== "approved" && (
                       <button
-                        onClick={() => handleApproveOrder(order.id)}
+                        onClick={() => handleApproveOrder(order)}
                         className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold transition-colors"
                       >
                         Tasdiqlash

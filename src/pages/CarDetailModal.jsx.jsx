@@ -14,6 +14,7 @@ import {
   LuSend,
   LuPhone,
   LuClock,
+  LuExternalLink,
 } from "react-icons/lu";
 import { FaInstagram } from "react-icons/fa";
 import { toast } from "react-toastify";
@@ -21,7 +22,8 @@ import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import PriceTag from "../comps/PriceTag";
 
-const ADMIN_TELEGRAM = "https://t.me/your_admin_username";
+const ADMIN_TELEGRAM = "https://t.me/xusan728";
+const BOT_USERNAME = "LuisFabianibot"; // Bot username'ingiz (o'zgartirib qo'yishingiz mumkin)
 const BOT_TOKEN = import.meta.env.VITE_TELEGRAM_BOT_TOKEN;
 const ADMIN_CHAT_ID = import.meta.env.VITE_ADMIN_CHAT_ID || "";
 
@@ -175,6 +177,8 @@ const CarDetailModal = ({ car: product, onClose }) => {
   const [selectedSize, setSelectedSize] = useState(null);
 
   const [showPhoneModal, setShowPhoneModal] = useState(false);
+  const [showTelegramRequiredModal, setShowTelegramRequiredModal] =
+    useState(false); // Veb uchun ogohlantirish modal
   const [phoneNumber, setPhoneNumber] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -221,13 +225,8 @@ const CarDetailModal = ({ car: product, onClose }) => {
   if (!product) return null;
 
   const instagramUrl = product.instagram || product.Instagram || "";
-  const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user || {
-    id: "Noma'lum",
-    first_name: "Mehmon",
-    last_name: "",
-    username: "yo'q",
-    photo_url: "",
-  };
+  const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+  const isTelegramWebApp = !!(tgUser && tgUser.id); // Telegram orqali ochilganligini tekshirish
 
   const goNext = () => setActiveIndex((prev) => (prev + 1) % images.length);
   const goPrev = () =>
@@ -257,6 +256,14 @@ const CarDetailModal = ({ car: product, onClose }) => {
       );
       return;
     }
+
+    // Agar Telegram Mini App ichida ochilmagan bo'lsa (veb orqali bo'lsa)
+    if (!isTelegramWebApp) {
+      setShowTelegramRequiredModal(true);
+      return;
+    }
+
+    // Agar Telegram orqali ochilgan bo'lsa telefon raqam modalini ochish
     setShowPhoneModal(true);
   };
 
@@ -281,13 +288,13 @@ const CarDetailModal = ({ car: product, onClose }) => {
         productImage: images[0] || "",
         price: product.price || 0,
         selectedSize: selectedSize,
-        phone: fullPhoneNumber, // Admin panel uchun moslashtirildi
-        clientPhone: fullPhoneNumber, // Zaxira uchun
+        phone: fullPhoneNumber,
+        clientPhone: fullPhoneNumber,
         telegramId: String(tgUser.id),
         firstName: tgUser.first_name || "",
         lastName: tgUser.last_name || "",
         username: tgUser.username || "",
-        photoUrl: tgUser.photo_url || "", // Foydalanuvchi rasmi
+        photoUrl: tgUser.photo_url || "",
         status: "pending",
         createdAt: serverTimestamp(),
       };
@@ -530,17 +537,28 @@ const CarDetailModal = ({ car: product, onClose }) => {
                 label="Model"
                 value={product.model}
               />
-              <StatChip
+              {/* <StatChip
                 icon={LuShieldCheck}
                 label="Turi"
                 value={product.category || product.type}
-              />
+              /> */}
               <StatChip
                 icon={LuPalette}
                 label="Material"
                 value={product.material}
               />
             </div>
+
+            {product.description && (
+              <div className="mb-5">
+                <div className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">
+                  Tavsif
+                </div>
+                <p className="text-sm text-slate-200 leading-relaxed bg-[#0f192b] p-3.5 rounded-2xl border border-slate-700/60 shadow-sm">
+                  {product.description}
+                </p>
+              </div>
+            )}
 
             {/* INSTAGRAM (VIDEO) TUGMASI */}
             {instagramUrl && (
@@ -563,22 +581,53 @@ const CarDetailModal = ({ car: product, onClose }) => {
                 <span>{product.date || "Bugun"}</span>
               </div>
             </div>
-
-            {product.description && (
-              <div className="mb-10">
-                <div className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">
-                  Tavsif
-                </div>
-                <p className="text-sm text-slate-200 leading-relaxed bg-[#0f192b] p-3.5 rounded-2xl border border-slate-700/60 shadow-sm">
-                  {product.description}
-                </p>
-              </div>
-            )}
           </div>
         </div>
       </motion.div>
 
-      {/* TELEFON RAQAM KIRITISH MODALI */}
+      {/* 1. TELEGRAM ORQALI OCHILMAGAN BO'LSA CHIQADIGAN OGOHLANTIRISH MODALI */}
+      {showTelegramRequiredModal && (
+        <div className="fixed inset-0 z-[2000000] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-[#112544] border border-slate-700 rounded-3xl p-6 w-full max-w-sm shadow-2xl relative text-center"
+          >
+            <button
+              type="button"
+              onClick={() => setShowTelegramRequiredModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white"
+            >
+              <LuX size={20} />
+            </button>
+
+            <div className="w-14 h-14 rounded-2xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center mb-4 text-sky-400 mx-auto">
+              <LuSend size={28} />
+            </div>
+
+            <h3 className="text-lg font-bold text-white mb-2">
+              Telegram botdan foydalaning!
+            </h3>
+            <p className="text-xs text-slate-300 mb-6 leading-relaxed">
+              Sotib olish va auksionda qatnashish uchun iltimos botimizni
+              Telegram dan oching. Shuningdek, barcha yangi xabarlar va
+              chegirmalardan doimo xabardor bo'lib turasiz!
+            </p>
+
+            <a
+              href={`https://t.me/${BOT_USERNAME}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-3.5 bg-sky-500 hover:bg-sky-400 text-white font-extrabold rounded-2xl text-sm shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2"
+            >
+              <LuExternalLink size={18} />
+              Botga o'tish
+            </a>
+          </motion.div>
+        </div>
+      )}
+
+      {/* 2. TELEGRAM ICHIDA OCHILGANDA CHIQADIGAN TELEFON RAQAM KIRITISH MODALI */}
       {showPhoneModal && (
         <div className="fixed inset-0 z-[2000000] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
           <motion.div
