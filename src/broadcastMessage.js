@@ -1,9 +1,7 @@
 import axios from "axios";
 
-// Token va URL loyihadagi .env faylidan olinadi
+// Token loyihadagi .env faylidan olinadi
 const BOT_TOKEN = import.meta.env.VITE_TELEGRAM_BOT_TOKEN;
-// const WEB_APP_URL =
-//   import.meta.env.VITE_WEB_APP_URL || "https://thewatchoutlet.netlify.app";
 const DELAY_BETWEEN_MESSAGES = 150; // Telegram limitidan oshib ketmaslik uchun 150ms
 
 function sleep(ms) {
@@ -23,17 +21,6 @@ export async function sendBroadcast(users, messageText, imageUrl, onProgress) {
   const isValidImageUrl =
     cleanUrl.startsWith("http://") || cleanUrl.startsWith("https://");
 
-  // const replyMarkup = {
-  //   inline_keyboard: [
-  //     [
-  //       {
-  //         text: "🚀 Botni ishga tushirish",
-  //         web_app: { url: WEB_APP_URL },
-  //       },
-  //     ],
-  //   ],
-  // };
-
   for (let i = 0; i < users.length; i++) {
     const user = users[i];
     if (!user.telegramId) continue;
@@ -51,7 +38,6 @@ export async function sendBroadcast(users, messageText, imageUrl, onProgress) {
             [payloadKey]: cleanUrl,
             caption: messageText,
             parse_mode: "HTML",
-            reply_markup: replyMarkup,
           }
         );
       } else {
@@ -61,7 +47,6 @@ export async function sendBroadcast(users, messageText, imageUrl, onProgress) {
             chat_id: user.telegramId,
             text: messageText,
             parse_mode: "HTML",
-            reply_markup: replyMarkup,
           }
         );
       }
