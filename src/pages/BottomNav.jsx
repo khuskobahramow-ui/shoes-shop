@@ -78,7 +78,7 @@ const BottomNav = () => {
 
         {/* 5. Telegram */}
         <a
-          href="https://t.me/avtotekuz"
+          href="https://t.me/xusan728"
           target="_blank"
           rel="noopener noreferrer"
           className="flex flex-col items-center justify-center flex-1 py-1 text-slate-400 hover:text-sky-500 transition-all duration-200"

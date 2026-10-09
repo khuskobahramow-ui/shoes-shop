@@ -21,6 +21,7 @@ import TelegramGuard from "./auction/components/TelegramGuard";
 import { trackTelegramUser } from "./trackUser";
 import UsedWatches from "./pages/UsedWatches";
 import SellWatch from "./pages/SellCar";
+import SalePage from "./pages/SalePage";
 
 const App = () => {
   useEffect(() => {
@@ -45,6 +46,7 @@ const App = () => {
         <Route path="/bozor" element={<Bozor />} />
         <Route path="/nasiya" element={<InstallmentPage />} />{" "}
         <Route path="/used-watches" element={<UsedWatches />} />
+        <Route path="/sale" element={<SalePage />} />
         {/* YANGI ROUTE */}
         <Route path="/favorites" element={<LikedProduct />} />
         {/* Telegram auksion ro'yxati sahifasi */}
