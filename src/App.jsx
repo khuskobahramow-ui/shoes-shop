@@ -30,7 +30,12 @@ const App = () => {
   return (
     <div className="min-h-screen text-slate-900 font-sans relative">
       {/* Global Toast Bildirishnomalari */}
-      <ToastContainer position="top-center" autoClose={3000} theme="dark" />
+      <ToastContainer
+        position="top-center"
+        style={{ zIndex: 9999999999999999999 }}
+        autoClose={3000}
+        theme="dark"
+      />
 
       {/* Marshrutlar (Routes) */}
       <Routes>

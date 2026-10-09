@@ -19,9 +19,15 @@ const AuctionCard = ({ item, onClick }) => {
     item.price ||
     0;
 
-  const title = item.cardTitle || item.title || item.name || "Nomsiz soat";
-  const mechanism = item.mechanism || item.Mechanism || "Mexanik";
-  const caseSize = item.caseSize || item.CaseSize || "41mm";
+  const title = item.cardTitle || item.title || item.name || "Nomsiz mahsulot";
+
+  // Mavjud razmerlarni olish va formatlash
+  const rawSizes = item?.sizes || item?.sizeList || item?.razmer || [];
+  const sizeList = Array.isArray(rawSizes)
+    ? [...new Set(rawSizes)]
+    : typeof rawSizes === "string"
+    ? [...new Set(rawSizes.split(/[\s,]+/).filter(Boolean))]
+    : [];
 
   // =========================================================
   // AUKSION TUGASH SANI VA SOATINI FORMATLASH
@@ -85,19 +91,23 @@ const AuctionCard = ({ item, onClick }) => {
       <div className="p-2 flex-1 flex flex-col gap-[5px] justify-between">
         <div>
           <h3 className="font-bold text-white text-sm truncate">{title}</h3>
-          <div className="text-blue-600 font-extrabold text-base">
+          <div className="text-blue-600 font-extrabold text-base mb-1">
             <PriceTag usd={displayPrice} size="sm" />
           </div>
-          {/* Mashina yili va km o'rniga soat parametrlari */}
-          <div className="text-[11px] text-slate-400 font-medium capitalize">
-            {mechanism} • {caseSize}
-          </div>
-        </div>
 
-        <div className="flex justify-end items-center text-[11px] text-slate-400 pt-1 border-t border-slate-700/50">
-          <span className="flex items-center gap-1 font-semibold text-slate-400">
-            <FaCalendarAlt className="text-indigo-400" /> {endDateTime}
-          </span>
+          {/* Dinamik razmerlar ro'yxati */}
+          {sizeList.length > 0 && (
+            <div className="flex items-center gap-1 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden py-0.5">
+              {sizeList.map((sz, idx) => (
+                <span
+                  key={`auc-size-${sz}-${idx}`}
+                  className="px-2 py-0.5 bg-[#162238] border border-slate-700 text-amber-400 font-bold text-[10px] rounded-md shrink-0"
+                >
+                  {sz}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="bg-[#112544] rounded-xl p-1.5 flex items-center justify-between text-xs mt-1 border border-indigo-900/50">
@@ -105,6 +115,12 @@ const AuctionCard = ({ item, onClick }) => {
           <h3 className="animate-pulse text-red-500 font-bold">
             <CountdownTimer endTime={rawEndTime} />
           </h3>
+        </div>
+
+        <div className="flex justify-end items-center text-[11px] text-slate-400 pt-1 border-t border-slate-700/50">
+          <span className="flex items-center gap-1 font-semibold text-slate-400">
+            <FaCalendarAlt className="text-indigo-400" /> {endDateTime}
+          </span>
         </div>
       </div>
     </div>

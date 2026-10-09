@@ -8,12 +8,9 @@ import {
   LuSend,
   LuClock,
   LuShieldAlert,
-  LuWatch,
-  LuLayers,
-  LuCpu,
-  LuShield,
-  LuMaximize,
-  LuDroplet,
+  LuSettings2,
+  LuShieldCheck,
+  LuPalette,
   LuTrendingUp,
   LuChevronLeft,
   LuChevronRight,
@@ -29,7 +26,7 @@ import { toast } from "react-toastify";
 import CountdownTimer from "./CountdownTimer";
 
 // Valyuta kursi
-const USD_RATE = 12700;
+const USD_RATE = 12800;
 
 /* 1. KATTALASHTIRILGAN RASM REJIMI (FULLSCREEN GALLERY) */
 const FullscreenGallery = ({ images, startIndex, onClose }) => {
@@ -144,6 +141,18 @@ const AuctionDetailModal = ({ auction, onClose, isApproved: propApproved }) => {
   const [showGallery, setShowGallery] = useState(false);
   const [activeImgIndex, setActiveImgIndex] = useState(0);
 
+  // Razmerlar uchun state
+  const rawSizes = auction?.sizes || auction?.sizeList || auction?.razmer || [];
+  const sizeList = Array.isArray(rawSizes)
+    ? [...new Set(rawSizes)]
+    : typeof rawSizes === "string"
+    ? [...new Set(rawSizes.split(/[\s,]+/).filter(Boolean))]
+    : [];
+
+  const [selectedSize, setSelectedSize] = useState(
+    sizeList.length > 0 ? sizeList[0] : null
+  );
+
   // Foydalanuvchining ruxsat holatini lokal ravishda tekshirish
   const [approvedState, setApprovedState] = useState(propApproved || false);
   const [checkingApproval, setCheckingApproval] = useState(true);
@@ -214,7 +223,6 @@ const AuctionDetailModal = ({ auction, onClose, isApproved: propApproved }) => {
 
   const handleDragEnd = (event, info) => {
     const threshold = 30;
-    // Agar surish (drag) masofasi juda kichik bo'lsa, uni oddiy "click" (bosish) deb hisoblaymiz
     if (Math.abs(info.offset.x) < 5 && Math.abs(info.offset.y) < 5) {
       setShowGallery(true);
       return;
@@ -250,7 +258,7 @@ const AuctionDetailModal = ({ auction, onClose, isApproved: propApproved }) => {
 
       setRequestSent(true);
       toast.success("Arizangiz adminga yuborildi!");
-      openLink("https://t.me/avtotek_admin");
+      openLink("https://t.me/xusan728");
     } catch (err) {
       console.error("Ariza yuborishda xato:", err);
       toast.error("Ariza yuborishda xatolik yuz berdi!");
@@ -264,6 +272,11 @@ const AuctionDetailModal = ({ auction, onClose, isApproved: propApproved }) => {
     e.preventDefault();
     if (isAuctionEnded) {
       toast.error("Auksion vaqti tugagan!");
+      return;
+    }
+
+    if (sizeList.length > 0 && !selectedSize) {
+      toast.warning("Iltimos, razmerni tanlang!");
       return;
     }
 
@@ -289,6 +302,7 @@ const AuctionDetailModal = ({ auction, onClose, isApproved: propApproved }) => {
         auctionId: auction.id,
         user: tgUser,
         amount: bidValue,
+        selectedSize: selectedSize,
         endTime: auction.endTime,
       });
       toast.success(`Stavka qabul qilindi: $${bidValue}`);
@@ -304,8 +318,8 @@ const AuctionDetailModal = ({ auction, onClose, isApproved: propApproved }) => {
   const bidNumber = Number(customBid);
   const isValidBid = customBid !== "" && bidNumber >= minValidBid;
 
-  const watchTitle =
-    auction.cardTitle || auction.title || auction.name || "Auksion Soati";
+  const productTitle =
+    auction.cardTitle || auction.title || auction.name || "Oyoq kiyim auksioni";
 
   return (
     <AnimatePresence>
@@ -333,7 +347,7 @@ const AuctionDetailModal = ({ auction, onClose, isApproved: propApproved }) => {
             >
               <img
                 src={images[activeImgIndex]}
-                alt={watchTitle}
+                alt={productTitle}
                 className="w-full h-full object-cover select-none"
                 draggable={false}
               />
@@ -369,7 +383,7 @@ const AuctionDetailModal = ({ auction, onClose, isApproved: propApproved }) => {
           {/* CONTENT SECTION */}
           <div className="px-4 pt-5 bg-[#112544] mb-[30px] rounded-t-3xl relative z-10 -mt-4 flex-1">
             <h2 className="text-2xl font-extrabold text-white leading-tight mb-1">
-              {watchTitle}
+              {productTitle}
             </h2>
 
             {/* ASOSIY NARX VA UZS QIYMATI */}
@@ -382,7 +396,32 @@ const AuctionDetailModal = ({ auction, onClose, isApproved: propApproved }) => {
               </div>
             </div>
 
-            {/* OXIRGI STAVKA EGISI KO'RINIShI */}
+            {/* RAZMERLARNI TANLASH */}
+            {sizeList.length > 0 && (
+              <div className="mb-4">
+                <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">
+                  Mavjud razmerlar:
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {sizeList.map((sz, idx) => (
+                    <button
+                      key={`auc-sz-${sz}-${idx}`}
+                      type="button"
+                      onClick={() => setSelectedSize(sz)}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border ${
+                        selectedSize === sz
+                          ? "bg-amber-500 text-slate-950 border-amber-400 shadow-md scale-105"
+                          : "bg-[#0f192b] text-slate-300 border-slate-700 hover:border-amber-500/50"
+                      }`}
+                    >
+                      {sz}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* OXIRGI STAVKA EGASI KO'RINISHI */}
             {auction.lastBidder && (
               <div className="bg-[#0f192b] border border-emerald-400 p-3 rounded-2xl flex items-center justify-between mb-4 text-xs">
                 <div className="flex items-center gap-2 min-w-0">
@@ -443,7 +482,7 @@ const AuctionDetailModal = ({ auction, onClose, isApproved: propApproved }) => {
                   <LuLock size={18} /> Auksion vaqti yakunlandi!
                 </div>
                 <p className="text-xs text-red-300 font-medium">
-                  Ushbu soat uchun stavkalar qabul qilish to'xtatildi.
+                  Ushbu mahsulot uchun stavkalar qabul qilish to'xtatildi.
                 </p>
               </div>
             ) : !inMiniApp ? (
@@ -511,7 +550,7 @@ const AuctionDetailModal = ({ auction, onClose, isApproved: propApproved }) => {
                   </button>
 
                   <a
-                    href="tel:+998901234567"
+                    href="tel:+998900770728"
                     className="flex items-center justify-center gap-2 py-3 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold rounded-2xl active:scale-95 transition-all shadow-lg shadow-emerald-600/30"
                   >
                     <LuPhone size={16} /> Qo'ng'iroq
@@ -591,13 +630,13 @@ const AuctionDetailModal = ({ auction, onClose, isApproved: propApproved }) => {
               </div>
             )}
 
-            {/* XUSUSIYATLAR GRIDI (SOAT PARAMETRLARI) */}
+            {/* XUSUSIYATLAR GRIDI (KRASOVKA PARAMETRLARI) */}
             <div className="text-xs font-bold text-slate-300 uppercase tracking-wide mb-2">
               Xususiyatlari
             </div>
             <div className="grid grid-cols-2 gap-2.5 mb-5">
               <div className="bg-[#0f192b] p-3 rounded-2xl border border-slate-700/50 shadow-sm flex items-center gap-2 text-xs">
-                <LuWatch className="text-indigo-400 shrink-0" size={16} />
+                <LuSettings2 className="text-amber-500 shrink-0" size={16} />
                 <div className="truncate">
                   <span className="text-slate-400 block text-[10px]">
                     Brend
@@ -609,70 +648,41 @@ const AuctionDetailModal = ({ auction, onClose, isApproved: propApproved }) => {
               </div>
 
               <div className="bg-[#0f192b] p-3 rounded-2xl border border-slate-700/50 shadow-sm flex items-center gap-2 text-xs">
-                <LuLayers className="text-indigo-400 shrink-0" size={16} />
+                <LuSettings2 className="text-amber-500 shrink-0" size={16} />
                 <div className="truncate">
                   <span className="text-slate-400 block text-[10px]">
-                    Korpus materiali
+                    Model
                   </span>
                   <strong className="text-white">
-                    {auction.caseMaterial || auction.CaseMaterial || "-"}
+                    {auction.model || auction.Model || "-"}
                   </strong>
                 </div>
               </div>
 
               <div className="bg-[#0f192b] p-3 rounded-2xl border border-slate-700/50 shadow-sm flex items-center gap-2 text-xs">
-                <LuCpu className="text-indigo-400 shrink-0" size={16} />
+                <LuShieldCheck className="text-amber-500 shrink-0" size={16} />
                 <div className="truncate">
-                  <span className="text-slate-400 block text-[10px]">
-                    Mexanizm
-                  </span>
+                  <span className="text-slate-400 block text-[10px]">Turi</span>
                   <strong className="text-white">
-                    {auction.mechanism || auction.Mechanism || "-"}
+                    {auction.category || auction.type || "-"}
                   </strong>
                 </div>
               </div>
 
               <div className="bg-[#0f192b] p-3 rounded-2xl border border-slate-700/50 shadow-sm flex items-center gap-2 text-xs">
-                <LuShield className="text-indigo-400 shrink-0" size={16} />
-                <div className="truncate">
-                  <span className="text-slate-400 block text-[10px]">Oyna</span>
-                  <strong className="text-white">
-                    {auction.glass || auction.Glass || "-"}
-                  </strong>
-                </div>
-              </div>
-
-              <div className="bg-[#0f192b] p-3 rounded-2xl border border-slate-700/50 shadow-sm flex items-center gap-2 text-xs">
-                <LuMaximize className="text-indigo-400 shrink-0" size={16} />
+                <LuPalette className="text-amber-500 shrink-0" size={16} />
                 <div className="truncate">
                   <span className="text-slate-400 block text-[10px]">
-                    Korpus o'lchami
+                    Material
                   </span>
                   <strong className="text-white">
-                    {auction.caseSize ||
-                      auction.CaseSize ||
-                      auction.case_size ||
-                      auction.size ||
-                      auction.diameter ||
-                      "-"}
-                  </strong>
-                </div>
-              </div>
-
-              <div className="bg-[#0f192b] p-3 rounded-2xl border border-slate-700/50 shadow-sm flex items-center gap-2 text-xs">
-                <LuDroplet className="text-indigo-400 shrink-0" size={16} />
-                <div className="truncate">
-                  <span className="text-slate-400 block text-[10px]">
-                    Suvga chidamlilik
-                  </span>
-                  <strong className="text-white">
-                    {auction.waterResistance || auction.WaterResistance || "-"}
+                    {auction.material || auction.Material || "-"}
                   </strong>
                 </div>
               </div>
 
               <div className="bg-[#0f192b] p-3 rounded-2xl border border-slate-700/50 shadow-sm flex items-center gap-2 text-xs col-span-2">
-                <LuTrendingUp className="text-indigo-400 shrink-0" size={16} />
+                <LuTrendingUp className="text-amber-500 shrink-0" size={16} />
                 <div className="truncate">
                   <span className="text-slate-400 block text-[10px]">
                     Stavka qadami
