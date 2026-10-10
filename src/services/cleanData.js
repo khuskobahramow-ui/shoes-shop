@@ -103,6 +103,9 @@ async function cleanupAllData() {
     // 2. Б/У soatlar kanali va kolleksiyasi
     await cleanupCollection("used_watches", USED_CHANNEL_ID);
 
+    // 2. Б/У soatlar kanali va kolleksiyasi
+    await cleanupCollection("shoes");
+
     // 3. Auksion soatlari
     await cleanupCollection("auctions", AUCTION_CHANNEL_ID);
 

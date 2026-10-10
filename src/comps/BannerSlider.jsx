@@ -5,7 +5,6 @@ const BannerSlider = () => {
   // 5 ta rasm URL'ini shu yerga o'zingizning havolalaringiz bilan almashtirasiz
   const slides = [
     "https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=1000&auto=format&fit=crop", // 1-rasm
-    "https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?q=80&w=1000&auto=format&fit=crop", // 2-rasm
     "https://images.unsplash.com/photo-1608231387042-66d1773070a5?q=80&w=1000&auto=format&fit=crop", // 3-rasm
     "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?q=80&w=1000&auto=format&fit=crop", // 4-rasm
     "https://images.unsplash.com/photo-1560769629-975ec94e6a86?q=80&w=1000&auto=format&fit=crop", // 5-rasm
