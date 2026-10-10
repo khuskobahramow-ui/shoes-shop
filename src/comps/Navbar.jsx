@@ -47,7 +47,7 @@ const Navbar = () => {
             />
           </Link> */}
           <h1 className=" font-bold font-serif text-amber-500 text-[20px]">
-            Luis Fabiani
+            Shoes Brend
           </h1>
         </div>
 
